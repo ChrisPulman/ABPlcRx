@@ -25,7 +25,7 @@ namespace ABPlcRx
         /// </summary>
         /// <param name="serializationInfo">The serialization information.</param>
         /// <param name="streamingContext">The streaming context.</param>
-        protected PlcTagException(System.Runtime.Serialization.SerializationInfo serializationInfo, in System.Runtime.Serialization.StreamingContext streamingContext)
+        protected PlcTagException(System.Runtime.Serialization.SerializationInfo serializationInfo, System.Runtime.Serialization.StreamingContext streamingContext)
             : base(serializationInfo, streamingContext)
         {
         }

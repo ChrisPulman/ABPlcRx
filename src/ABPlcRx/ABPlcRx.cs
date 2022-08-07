@@ -21,7 +21,7 @@ namespace ABPlcRx
         /// <param name="plcType">Type of the PLC.</param>
         /// <param name="ip">The ip.</param>
         /// <param name="scanInterval">The scan interval.</param>
-        public ABPlcRx(PlcType plcType, string ip, in TimeSpan scanInterval)
+        public ABPlcRx(PlcType plcType, string ip, TimeSpan scanInterval)
             : this(plcType, ip, scanInterval, TimeSpan.FromSeconds(1), null)
         {
         }
@@ -34,7 +34,7 @@ namespace ABPlcRx
         /// <param name="scanInterval">The scan interval.</param>
         /// <param name="timeOut">The time out.</param>
         /// <param name="path">The path.</param>
-        public ABPlcRx(PlcType plcType, string ip, in TimeSpan scanInterval, in TimeSpan timeOut, string? path = "1,0")
+        public ABPlcRx(PlcType plcType, string ip, TimeSpan scanInterval, TimeSpan timeOut, string? path = "1,0")
         {
             _scanInterval = scanInterval;
             _plc = new ABPlc(ip, plcType, path)

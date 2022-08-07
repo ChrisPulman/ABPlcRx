@@ -180,7 +180,7 @@ namespace ABPlcRx
         /// <param name="name">The name.</param>
         /// <param name="scanInterval">The scan interval.</param>
         /// <param name="tagGroup">The tag group.</param>
-        public void AddTagToGroup<T>(string name, in TimeSpan scanInterval, string tagGroup = "Default")
+        public void AddTagToGroup<T>(string name, TimeSpan scanInterval, string tagGroup = "Default")
         {
             if (!HasTagGroup(tagGroup))
             {
