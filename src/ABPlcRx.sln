@@ -9,16 +9,16 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ABPlcRx.TestApp", "ABPlcRx.
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionConfig", "SolutionConfig", "{30F5D33B-24CC-4074-962D-C6919D00D1F5}"
 	ProjectSection(SolutionItems) = preProject
-		..\..\.editorconfig = ..\..\.editorconfig
-		..\..\.gitignore = ..\..\.gitignore
-		..\..\.github\workflows\BuildOnly.yml = ..\..\.github\workflows\BuildOnly.yml
-		..\..\.github\dependabot.yml = ..\..\.github\dependabot.yml
-		..\..\Directory.Build.props = ..\..\Directory.Build.props
-		..\..\.github\workflows\dotnet.yml = ..\..\.github\workflows\dotnet.yml
-		..\..\LICENSE = ..\..\LICENSE
-		..\..\README.md = ..\..\README.md
-		..\..\stylecop.json = ..\..\stylecop.json
-		..\..\Version.json = ..\..\Version.json
+		..\.editorconfig = ..\.editorconfig
+		..\.gitignore = ..\.gitignore
+		..\.github\workflows\BuildOnly.yml = ..\.github\workflows\BuildOnly.yml
+		..\.github\dependabot.yml = ..\.github\dependabot.yml
+		..\Directory.Build.props = ..\Directory.Build.props
+		..\.github\workflows\dotnet.yml = ..\.github\workflows\dotnet.yml
+		..\LICENSE = ..\LICENSE
+		..\README.md = ..\README.md
+		..\stylecop.json = ..\stylecop.json
+		..\Version.json = ..\Version.json
 	EndProjectSection
 EndProject
 Global
