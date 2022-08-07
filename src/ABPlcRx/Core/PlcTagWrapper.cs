@@ -447,7 +447,7 @@ namespace ABPlcRx
             }
             else if (type == typeof(double))
             {
-                SetFloat64((float)value!, offset);
+                SetFloat64((double)value!, offset);
             }
             else if (type == typeof(string))
             {

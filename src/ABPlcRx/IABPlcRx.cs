@@ -20,12 +20,20 @@ namespace ABPlcRx
         IObservable<IPlcTag?> ObserveAll { get; }
 
         /// <summary>
-        /// Gets the status.
+        /// Gets or sets a value indicating whether [scan enabled].
         /// </summary>
         /// <value>
-        /// The status.
+        ///   <c>true</c> if [scan enabled]; otherwise, <c>false</c>.
         /// </value>
-        IObservable<string> Status { get; }
+        bool ScanEnabled { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether [automatic write value].
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if [automatic write value]; otherwise, <c>false</c>.
+        /// </value>
+        bool AutoWriteValue { get; set; }
 
         /// <summary>
         /// Adds the update tag item.
@@ -87,5 +95,31 @@ namespace ABPlcRx
         /// <param name="value">The value.</param>
         /// <param name="bit">The bit.</param>
         void Value<T>(string? variable, T? value, int bit = -1);
+
+        /// <summary>
+        /// Writes all tags in this instance.
+        /// </summary>
+        /// <returns>A PlcTagResult.</returns>
+        IEnumerable<PlcTagResult> Write();
+
+        /// <summary>
+        /// Writes the specified variable.
+        /// </summary>
+        /// <param name="variable">The variable.</param>
+        /// <returns>A PlcTagResult.</returns>
+        PlcTagResult? Write(string? variable);
+
+        /// <summary>
+        /// Reads all tags in this instance.
+        /// </summary>
+        /// <returns>A PlcTagResult.</returns>
+        IEnumerable<PlcTagResult> Read();
+
+        /// <summary>
+        /// Reads the specified variable.
+        /// </summary>
+        /// <param name="variable">The variable.</param>
+        /// <returns>A PlcTagResult.</returns>
+        PlcTagResult? Read(string? variable);
     }
 }

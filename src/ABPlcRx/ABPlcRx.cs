@@ -14,6 +14,7 @@ namespace ABPlcRx
         private readonly CompositeDisposable _disposables = new();
         private readonly ABPlc _plc;
         private readonly TimeSpan _scanInterval;
+        private bool _scanEnabled;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ABPlcRx" /> class.
@@ -45,6 +46,18 @@ namespace ABPlcRx
         }
 
         /// <summary>
+        /// Gets or sets a value indicating whether [automatic write value].
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if [automatic write value]; otherwise, <c>false</c>.
+        /// </value>
+        public bool AutoWriteValue
+        {
+            get => _plc.AutoWriteValue;
+            set => _plc.AutoWriteValue = value;
+        }
+
+        /// <summary>
         /// Gets a value indicating whether gets a value that indicates whether the object is disposed.
         /// </summary>
         public bool IsDisposed => _disposables.IsDisposed;
@@ -56,12 +69,23 @@ namespace ABPlcRx
         public IObservable<IPlcTag?> ObserveAll => _plc.Tags.Select(x => x.Changed).Merge().Select(c => c.Tag);
 
         /// <summary>
-        /// Gets the status.
+        /// Gets or sets a value indicating whether [scan enabled].
         /// </summary>
         /// <value>
-        /// The status.
+        ///   <c>true</c> if [scan enabled]; otherwise, <c>false</c>.
         /// </value>
-        public IObservable<string> Status { get; }
+        public bool ScanEnabled
+        {
+            get => _scanEnabled;
+            set
+            {
+                _scanEnabled = value;
+                foreach (var list in _plc.TagCollectionList)
+                {
+                    list.ScanEnabled = value;
+                }
+            }
+        }
 
         /// <summary>
         /// Adds the update tag item.
@@ -142,6 +166,30 @@ namespace ABPlcRx
                       .Retry().Publish().RefCount();
 
         /// <summary>
+        /// Reads the specified variable.
+        /// </summary>
+        /// <param name="variable">The variable.</param>
+        /// <returns>
+        /// A PlcTagResult.
+        /// </returns>
+        public PlcTagResult? Read(string? variable) => _plc.GetPlcTag(variable!)?.Read();
+
+        /// <summary>
+        /// Reads all the Tags in this instance.
+        /// </summary>
+        /// <returns>A PlcTagResult.</returns>
+        public IEnumerable<PlcTagResult> Read()
+        {
+            var results = new List<PlcTagResult>();
+            foreach (var tag in _plc.TagCollectionList)
+            {
+                results.AddRange(tag.Read());
+            }
+
+            return results;
+        }
+
+        /// <summary>
         /// Values the specified variable.
         /// </summary>
         /// <typeparam name="T">The type.</typeparam>
@@ -185,6 +233,32 @@ namespace ABPlcRx
             {
                 tag!.Value = value;
             }
+        }
+
+        /// <summary>
+        /// Writes the specified variable.
+        /// </summary>
+        /// <param name="variable">The variable.</param>
+        /// <returns>
+        /// A PlcTagResult.
+        /// </returns>
+        public PlcTagResult? Write(string? variable) => _plc.GetPlcTag(variable!)?.Write();
+
+        /// <summary>
+        /// Writes all the tags in this instance.
+        /// </summary>
+        /// <returns>
+        /// A PlcTagResult.
+        /// </returns>
+        public IEnumerable<PlcTagResult> Write()
+        {
+            var results = new List<PlcTagResult>();
+            foreach (var tag in _plc.TagCollectionList)
+            {
+                results.AddRange(tag.Write());
+            }
+
+            return results;
         }
 
         /// <summary>

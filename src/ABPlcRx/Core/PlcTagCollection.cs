@@ -23,7 +23,7 @@ namespace ABPlcRx
             Plc = plc;
             _scanDisposable = Observable.Timer(TimeSpan.Zero, scanInterval).Retry().Subscribe(_ =>
              {
-                 if (Enabled)
+                 if (ScanEnabled)
                  {
                      lock (_lockScan)
                      {
@@ -46,12 +46,12 @@ namespace ABPlcRx
         }
 
         /// <summary>
-        /// Gets or sets a value indicating whether enabled status.
+        /// Gets or sets a value indicating whether to read tags.
         /// </summary>
         /// <value>
         ///   <c>true</c> if enabled; otherwise, <c>false</c>.
         /// </value>
-        public bool Enabled { get; set; } = true;
+        public bool ScanEnabled { get; set; } = true;
 
         /// <summary>
         /// Gets the read results.

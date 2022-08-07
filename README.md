@@ -55,7 +55,10 @@ Be careful!
 var microLogix = new ABPlcRx(PlcType.SLC, "172.16.17.4", TimeSpan.FromMilliseconds(500));
 _disposables.Add(microLogix);
 
-// Add tags to PLC
+// Add tags to PLC - Variable can be any name and is used as a Key for further functions.
+//                 - TagName can be any valid AB tag relevant to the PLC Type connectedz.
+//                 - The Tag Type must be a short to read a 16 bit array of bool, use the bit to specify which bit to use.
+//                 - TagGroup can be any value to group tags together providing the ability to read or write a group of tags.
 microLogix.AddUpdateTagItem<short>("LightOn", "B3:3", "Default");
 
 // Subscribe to tag updates

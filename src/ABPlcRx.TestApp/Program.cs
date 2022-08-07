@@ -28,18 +28,23 @@ namespace ABPlcRx.TestApp
 
         private static void MicroLogix()
         {
-            _disposables.Add(Observable.Delay(
-                Observable.Start(
+            _disposables.Add(Observable.Start(
                 () =>
                     {
                         // Create PLC
                         var microLogix = new ABPlcRx(PlcType.SLC, "172.16.17.4", TimeSpan.FromMilliseconds(500));
                         _disposables.Add(microLogix);
 
-                        // Add tags to PLC
+                        // Disable Auto Write NOTE: defaults to true.
+                        microLogix.AutoWriteValue = false;
+
+                        // Add tags to PLC - Variable can be any name and is used as a Key for further functions.
+                        //                 - TagName can be any valid AB tag relevant to the PLC Type connectedz.
+                        //                 - The Tag Type must be a short to read a 16 bit array of bool, use the bit to specify which bit to use.
+                        //                 - TagGroup can be any value to group tags together providing the ability to read or write a group of tags.
                         microLogix.AddUpdateTagItem<short>("Variable1", "B3:3", "Default");
 
-                        // Subscribe to tag updates
+                        // Subscribe to tag updates.
                         _disposables.Add(microLogix.Observe<bool>("Variable1", 0).Subscribe(value => Console.WriteLine($"B3:3/0 = {value}")));
 
                         _disposables.Add(Observable.Interval(TimeSpan.FromSeconds(1)).Subscribe(_ =>
@@ -47,10 +52,16 @@ namespace ABPlcRx.TestApp
                             // Update tag value (will be sent to PLC)
                             var current = !microLogix.Value<bool>("Variable1", 0);
                             microLogix.Value<bool>("Variable1", current, 0);
+
+                            // Write all tags to PLC.
+                            if (!microLogix.AutoWriteValue)
+                            {
+                                microLogix.Write();
+                            }
+
                             Console.Out.WriteLine($"Written {current} to PLC B3:3/0");
                         }));
-                    }),
-                TimeSpan.FromSeconds(1))
+                    }).Delay(TimeSpan.FromSeconds(1))
                 .Subscribe());
             WaitForExit();
         }
