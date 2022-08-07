@@ -19,7 +19,7 @@ namespace ABPlcRx
         /// <returns>A Value.</returns>
         public static TType CreateObject<TType>(int length)
         {
-            var obj = default(TType);
+            TType? obj;
             var typeTType = typeof(TType);
 
             if (typeTType == typeof(string))

@@ -37,16 +37,16 @@ namespace ABPlcRx.TestApp
                         _disposables.Add(microLogix);
 
                         // Add tags to PLC
-                        microLogix.AddUpdateTagItem<short>("B3:3", "Default");
+                        microLogix.AddUpdateTagItem<short>("Variable1", "B3:3", "Default");
 
                         // Subscribe to tag updates
-                        _disposables.Add(microLogix.Observe<bool>("B3:3", 0).Subscribe(value => Console.WriteLine($"B3:3/0 = {value}")));
+                        _disposables.Add(microLogix.Observe<bool>("Variable1", 0).Subscribe(value => Console.WriteLine($"B3:3/0 = {value}")));
 
                         _disposables.Add(Observable.Interval(TimeSpan.FromSeconds(1)).Subscribe(_ =>
                         {
                             // Update tag value (will be sent to PLC)
-                            var current = !microLogix.Value<bool>("B3:3", 0);
-                            microLogix.Value<bool>("B3:3", current, 0);
+                            var current = !microLogix.Value<bool>("Variable1", 0);
+                            microLogix.Value<bool>("Variable1", current, 0);
                             Console.Out.WriteLine($"Written {current} to PLC B3:3/0");
                         }));
                     }),

@@ -67,7 +67,7 @@ namespace ABPlcRx
         /// </summary>
         /// <returns>A Value.</returns>
         public override string ToString() =>
-           $@"Tag Name:      {Tag.Name}
+           $@"Tag Name:      {Tag.TagName}
             Tag Value:     {Tag.Value}
             Timestamp:     {Timestamp}
             ExecutionTime: {ExecutionTime}

@@ -14,7 +14,7 @@ namespace ABPlcRx
     {
         private readonly object _lockScan = new();
         private readonly Subject<IEnumerable<PlcTagResult>> _readResultSubject = new();
-        private readonly IDisposable _scanDisposable;
+        private readonly IDisposable? _scanDisposable;
         private readonly List<IPlcTag> _tags = new();
         private bool _disposed;
 
@@ -83,12 +83,20 @@ namespace ABPlcRx
         /// <summary>
         /// Create Tag array.
         /// </summary>
+        /// <typeparam name="TCustomType">Type to create.</typeparam>
+        /// <param name="key">The key.</param>
         /// <param name="name">The textual name of the tag to access. The name is anything allowed by the protocol.
         /// E.g. myDataStruct.rotationTimer.ACC, myDINTArray[42] etc.</param>
         /// <param name="length">elements count: 1- single, n-array.</param>
-        /// <typeparam name="TCustomType">Type to create.</typeparam>
-        /// <returns>A Value.</returns>
-        public IPlcTag<TCustomType> CreateTagArray<TCustomType>(string name, int length)
+        /// <returns>
+        /// A Value.
+        /// </returns>
+        /// <exception cref="System.ArgumentException">
+        /// Is not array!
+        /// or
+        /// Length > 0.
+        /// </exception>
+        public IPlcTag<TCustomType> CreateTagArray<TCustomType>(string key, string name, int length)
             where TCustomType : IList
         {
             var type = typeof(TCustomType);
@@ -103,23 +111,27 @@ namespace ABPlcRx
             }
 
             var obj = TagHelper.CreateObject<TCustomType>(length);
-            return CreateTagType<TCustomType>(name, DataLength.GetSizeObject(obj[0]), length);
+            return CreateTagType<TCustomType>(key, name, DataLength.GetSizeObject(obj[0]), length);
         }
 
         /// <summary>
         /// Create Tag custom Type Class.
         /// </summary>
-        /// <param name="name">The textual name of the tag to access. The name is anything allowed by the protocol.
-        /// E.g. myDataStruct.rotationTimer.ACC, myDINTArray[42] etc.</param>
         /// <typeparam name="TCustomType">Class to create.</typeparam>
-        /// <returns>A Value.</returns>
-        public IPlcTag<TCustomType> CreateTagType<TCustomType>(string name) => CreateTagType<TCustomType>(name, DataLength.GetSizeObject(TagHelper.CreateObject<TCustomType>(1)));
+        /// <param name="variable">The variable used by the end user.</param>
+        /// <param name="tagName">The textual name of the tag to access. The name is anything allowed by the protocol.
+        /// E.g. myDataStruct.rotationTimer.ACC, myDINTArray[42] etc.</param>
+        /// <returns>
+        /// A Value.
+        /// </returns>
+        public IPlcTag<TCustomType> CreateTagType<TCustomType>(string variable, string tagName) => CreateTagType<TCustomType>(variable, tagName, DataLength.GetSizeObject(TagHelper.CreateObject<TCustomType>(1)));
 
         /// <summary>
         /// Create Tag using free definition.
         /// </summary>
         /// <typeparam name="TCustomType">The type of the custom type.</typeparam>
-        /// <param name="name">The textual name of the tag to access. The name is anything allowed by the protocol.
+        /// <param name="variable">The key.</param>
+        /// <param name="tagName">The textual name of the tag to access. The name is anything allowed by the protocol.
         /// E.g. myDataStruct.rotationTimer.ACC, myDINTArray[42] etc.</param>
         /// <param name="size">The size of an element in bytes. The tag is assumed to be composed of elements of the same size.
         /// For structure tags, use the total size of the structure.</param>
@@ -127,9 +139,9 @@ namespace ABPlcRx
         /// <returns>
         /// A Value.
         /// </returns>
-        public IPlcTag<TCustomType> CreateTagType<TCustomType>(string name, int size, int length = 1)
+        public IPlcTag<TCustomType> CreateTagType<TCustomType>(string variable, string tagName, int size, int length = 1)
         {
-            var tag = new PlcTag<TCustomType>(Plc!, name, size, length);
+            var tag = new PlcTag<TCustomType>(Plc!, variable, tagName, size, length);
             _tags.Add(tag);
             return tag;
         }
@@ -189,7 +201,7 @@ namespace ABPlcRx
             {
                 if (disposing)
                 {
-                    _scanDisposable.Dispose();
+                    _scanDisposable?.Dispose();
                     _readResultSubject.Dispose();
                     foreach (var tag in _tags.ToArray())
                     {

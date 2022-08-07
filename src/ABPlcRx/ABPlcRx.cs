@@ -47,7 +47,7 @@ namespace ABPlcRx
         /// <summary>
         /// Gets a value indicating whether gets a value that indicates whether the object is disposed.
         /// </summary>
-        public bool IsDisposed { get; }
+        public bool IsDisposed => _disposables.IsDisposed;
 
         /// <summary>
         /// Gets the data read.
@@ -66,13 +66,36 @@ namespace ABPlcRx
         /// <summary>
         /// Adds the update tag item.
         /// </summary>
+        /// <typeparam name="T">The PLC type.</typeparam>
+        /// <param name="tagName">Name of the tag.</param>
+        public void AddUpdateTagItem<T>(string tagName) =>
+            AddUpdateTagItem<T>(tagName!, tagName, "Default");
+
+        /// <summary>
+        /// Adds the update tag item.
+        /// </summary>
+        /// <typeparam name="T">The PLC type.</typeparam>
+        /// <param name="variable">The variable, this can be any non null name you wish to use.</param>
+        /// <param name="tagName">Name of the tag.</param>
+        public void AddUpdateTagItem<T>(string variable, string tagName) =>
+            AddUpdateTagItem<T>(variable, tagName, "Default");
+
+        /// <summary>
+        /// Adds the update tag item.
+        /// </summary>
         /// <typeparam name="T">The tag type.</typeparam>
+        /// <param name="variable">The variable, this can be any non null name you wish to use.</param>
         /// <param name="tagName">Name of the tag.</param>
         /// <param name="tagGroup">The tag group.</param>
         /// <exception cref="System.ArgumentNullException">tagName.</exception>
         /// <exception cref="System.Exception">Please use type of short, then use bool for other operations and set the bit number.</exception>
-        public void AddUpdateTagItem<T>(string? tagName, string tagGroup = "Default")
+        public void AddUpdateTagItem<T>(string variable, string tagName, string tagGroup)
         {
+            if (string.IsNullOrWhiteSpace(variable))
+            {
+                throw new ArgumentNullException(nameof(variable));
+            }
+
             if (string.IsNullOrWhiteSpace(tagName))
             {
                 throw new ArgumentNullException(nameof(tagName));
@@ -88,7 +111,7 @@ namespace ABPlcRx
                 throw new Exception("Please use type of short, then use bool for other operations and set the bit number.");
             }
 
-            _plc.AddTagToGroup<T>(tagName, _scanInterval, tagGroup);
+            _plc.AddTagToGroup<T>(variable, tagName!, _scanInterval, tagGroup);
         }
 
         /// <summary>
@@ -111,7 +134,7 @@ namespace ABPlcRx
         /// An Observable of T.
         /// </returns>
         public IObservable<T?> Observe<T>(string? variable, int bit = -1) =>
-            ObserveAll.Where(t => t?.Name == variable)
+            ObserveAll.Where(t => t?.Variable == variable)
                       .DelaySubscription(_scanInterval)
                       .Select(t => GetTagValue<T>(bit, t))
                       .StartWith(Value<T>(variable, bit))

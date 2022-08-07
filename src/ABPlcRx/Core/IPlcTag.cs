@@ -32,6 +32,14 @@ namespace ABPlcRx
         bool IsWrite { get; }
 
         /// <summary>
+        /// Gets the key.
+        /// </summary>
+        /// <value>
+        /// The key.
+        /// </value>
+        string Variable { get; }
+
+        /// <summary>
         /// Gets elements length: 1- single, n-array.
         /// </summary>
         int Length { get; }
@@ -40,7 +48,7 @@ namespace ABPlcRx
         /// Gets the textual name of the tag to access. The name is anything allowed by the protocol.
         /// E.g. myDataStruct.rotationTimer.ACC, myDINTArray[42] etc.
         /// </summary>
-        string Name { get; }
+        string TagName { get; }
 
         /// <summary>
         /// Gets or sets a value indicating whether indicate if Tag is in read only.async Write raise exception.

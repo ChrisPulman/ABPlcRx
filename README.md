@@ -1,3 +1,12 @@
+![License](https://img.shields.io/github/license/ChrisPulman/ABPlcRx.svg) [![Build](https://github.com/ChrisPulman/ABPlcRx/actions/workflows/BuildOnly.yml/badge.svg)](https://github.com/ChrisPulman/ABPlcRx/actions/workflows/BuildOnly.yml) ![Nuget](https://img.shields.io/nuget/dt/ABPlcRx?color=pink&style=plastic) [![NuGet](https://img.shields.io/nuget/v/ABPlcRx.svg?style=plastic)](https://www.nuget.org/packages/ABPlcRx)
+
+<p align="left">
+  <a href="https://github.com/ChrisPulman/ABPlcRx">
+    <img alt="ABPlcRx" src="https://github.com/ChrisPulman/ABPlcRx/blob/main/Images/logo.png" width="200"/>
+  </a>
+</p>
+
+
 # ABPlcRx
 
 ## A Reative Allen Bradley library Built on top of [libplctag](https://github.com/libplctag/libplctag)
@@ -47,13 +56,13 @@ var microLogix = new ABPlcRx(PlcType.SLC, "172.16.17.4", TimeSpan.FromMillisecon
 _disposables.Add(microLogix);
 
 // Add tags to PLC
-microLogix.AddUpdateTagItem<short>("B3:3", "Default");
+microLogix.AddUpdateTagItem<short>("LightOn", "B3:3", "Default");
 
 // Subscribe to tag updates
-_disposables.Add(microLogix.Observe<bool>("B3:3", 0).Subscribe(value => Console.WriteLine($"B3:3/0 = {value}")));
+_disposables.Add(microLogix.Observe<bool>("LightOn", 0).Subscribe(value => Console.WriteLine($"B3:3/0 = {value}")));
 
 // Update tag value (will be sent to PLC)
-var current = !microLogix.Value<bool>("B3:3", 0);
-microLogix.Value<bool>("B3:3", current, 0);
+var current = !microLogix.Value<bool>("LightOn", 0);
+microLogix.Value<bool>("LightOn", current, 0);
 Console.Out.WriteLine($"Written {current} to PLC B3:3/0");
 ```

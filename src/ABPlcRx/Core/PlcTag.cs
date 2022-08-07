@@ -20,19 +20,21 @@ namespace ABPlcRx
         private TType? _value;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="PlcTag{TType}"/> class.
+        /// Initializes a new instance of the <see cref="PlcTag{TType}" /> class.
         /// Creates a tag. If the CPU type is LGX, the port type and slot has to be specified.
         /// </summary>
         /// <param name="abPlc">Controller reference.</param>
-        /// <param name="name">The textual name of the tag to access. The name is anything allowed by the protocol.
+        /// <param name="variable">The key.</param>
+        /// <param name="tagName">The textual name of the tag to access. The name is anything allowed by the protocol.
         /// E.g. myDataStruct.rotationTimer.ACC, myDINTArray[42] etc.</param>
         /// <param name="size">The size of an element in bytes. The tag is assumed to be composed of elements of the same size.
         /// For structure tags, use the total size of the structure.</param>
         /// <param name="length">elements count: 1- single, n-array.</param>
-        internal PlcTag(ABPlc abPlc, string name, int size, int length = 1)
+        internal PlcTag(ABPlc abPlc, string variable, string tagName, int size, int length = 1)
         {
             ABPlc = abPlc;
-            Name = name;
+            Variable = variable;
+            TagName = tagName;
             Size = size;
             Length = length;
             ValueManager = new PlcTagWrapper(this);
@@ -44,7 +46,7 @@ namespace ABPlcRx
                 url += $"&path={abPlc.Slot}";
             }
 
-            url += $"&cpu={abPlc.PlcType}&elem_size={Size}&elem_count={Length}&name={Name}";
+            url += $"&cpu={abPlc.PlcType}&elem_size={Size}&elem_count={Length}&name={TagName}";
             if (abPlc.DebugLevel > 0)
             {
                 url += $"&debug={abPlc.DebugLevel}";
@@ -103,7 +105,15 @@ namespace ABPlcRx
         /// Gets the textual name of the tag to access. The name is anything allowed by the protocol.
         /// E.g. myDataStruct.rotationTimer.ACC, myDINTArray[42] etc.
         /// </summary>
-        public string Name { get; }
+        public string TagName { get; }
+
+        /// <summary>
+        /// Gets the key.
+        /// </summary>
+        /// <value>
+        /// The key.
+        /// </value>
+        public string Variable { get; }
 
         /// <summary>
         /// Gets or sets a value indicating whether indicate if Tag is in read only.async Write raise exception.
@@ -215,7 +225,10 @@ namespace ABPlcRx
                 throw new PlcTagException(result);
             }
 
-            _changedSubject?.OnNext(result);
+            if (!_changedSubject.IsDisposed)
+            {
+                _changedSubject?.OnNext(result);
+            }
 
             return result;
         }
@@ -252,9 +265,6 @@ namespace ABPlcRx
             {
                 throw new PlcTagException(result);
             }
-
-            Read();
-            var dummy = Value;
 
             return result;
         }

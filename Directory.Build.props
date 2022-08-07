@@ -15,12 +15,12 @@
     <PackageIcon>logo.png</PackageIcon>
     <Configurations>Debug;Release;PreRelease</Configurations>
     <PackageReleaseNotes>Compatability with Net 6 and netstandard2.0</PackageReleaseNotes>
-    <PackageTags>MQTT;MQTTnet;SerialPort;rx;reactive;extensions;observable;LINQ;net;netstandard</PackageTags>
+    <PackageTags>Rockwell;AB;Allen;Bradley;PLC;rx;reactive;extensions;observable;LINQ;net;netstandard</PackageTags>
     <EnableNETAnalyzers>True</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
 
-    <PackageProjectUrl>https://github.com/ChrisPulman/MQTTnet.Rx.SerialPort</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/ChrisPulman/MQTTnet.Rx.SerialPort</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/ChrisPulman/ABPlcRx</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ChrisPulman/ABPlcRx</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <!--https://devblogs.microsoft.com/dotnet/producing-packages-with-source-link/-->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
