@@ -9,7 +9,7 @@
 
 # ABPlcRx
 
-## A Reative Allen Bradley library Built on top of [libplctag](https://github.com/libplctag/libplctag)
+## A Reative Allen Bradley PLC library Built on top of [libplctag](https://github.com/libplctag/libplctag)
 
 
 ## WARNING - DISCLAIMER
@@ -41,14 +41,15 @@ Be careful!
   - read/write of 16-bit INT.
   - read/write of 32-bit floating point.
   - read/write of arrays of the above.
-- extensive example code.  Including
-  - tag listing.
-  - setting up and handling callbacks.
-  - logging data from multiple tags.
-  - reading and writing tags from the command line.
-  - getting and setting individual bits as tags.
 - Support for Omron NX/NJ series PLCs as for Allen-Bradley Micro800.
 - Support for Modbus TCP.
+
+- Code Sample
+  - AddUpdateTagItem - this allows the creation of a Tag, Variable is used within your application and is a key, TagName is the variable as per the connected PLC, TagGroup allows the creation of Tag Groups and will allow functions to be called that only affect that group.
+  - Value - Read and Write values. Booleans must use type of short when creating a tag, then set the bit value to the relevant (16 bit array) bit you wish to read or write.
+  - Observe - Observable stream of values updated On Change.
+  - Read() - reads all Tags from the PLC.
+  - Write() - writes all Tags to the PLC.
 
 ```c#
 // Create PLC

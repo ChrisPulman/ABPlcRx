@@ -3,7 +3,7 @@
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Authors>Chris Pulman</Authors>
-    <Description>A Reactive SerialPort for MQTTnet Broker</Description>
+    <Description>A Reactive Allen Bradley PLC library</Description>
     <Copyright>Copyright © https://github.com/ChrisPulman $([System.DateTime]::Now.ToString(yyyy))</Copyright>
     <IsTestProject>$(MSBuildProjectName.Contains('Tests'))</IsTestProject>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -15,7 +15,7 @@
     <PackageIcon>logo.png</PackageIcon>
     <Configurations>Debug;Release;PreRelease</Configurations>
     <PackageReleaseNotes>Compatability with Net 6 and netstandard2.0</PackageReleaseNotes>
-    <PackageTags>Rockwell;AB;Allen;Bradley;PLC;rx;reactive;extensions;observable;LINQ;net;netstandard</PackageTags>
+    <PackageTags>Rockwell;AB;Allen;Bradley;PLC;Micrologix;Controllogix;CompactLogix;PLC-5;rx;reactive;extensions;observable;LINQ;net;netstandard</PackageTags>
     <EnableNETAnalyzers>True</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
 
