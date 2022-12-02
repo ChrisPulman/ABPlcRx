@@ -109,7 +109,7 @@ namespace ABPlcRx
             else if (!NativeTypes.TryGetValue(type, out size) && type.IsClass && !type.IsAbstract)
             {
                 size += TagHelper.GetAccessableProperties(type)
-                                 .Select(a => GetSizeObject(a.GetValue(obj)!))
+                                 .Select(a => GetSizeObject(a.GetValue(obj)))
                                  .Sum();
             }
 
