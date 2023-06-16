@@ -1,5 +1,7 @@
 ![License](https://img.shields.io/github/license/ChrisPulman/ABPlcRx.svg) [![Build](https://github.com/ChrisPulman/ABPlcRx/actions/workflows/BuildOnly.yml/badge.svg)](https://github.com/ChrisPulman/ABPlcRx/actions/workflows/BuildOnly.yml) ![Nuget](https://img.shields.io/nuget/dt/ABPlcRx?color=pink&style=plastic) [![NuGet](https://img.shields.io/nuget/v/ABPlcRx.svg?style=plastic)](https://www.nuget.org/packages/ABPlcRx)
 
+![Alt](https://repobeats.axiom.co/api/embed/24d527be4f32c7d50e5e907b50687874772158ee.svg "Repobeats analytics image")
+
 <p align="left">
   <a href="https://github.com/ChrisPulman/ABPlcRx">
     <img alt="ABPlcRx" src="https://github.com/ChrisPulman/ABPlcRx/blob/main/Images/logo.png" width="200"/>
