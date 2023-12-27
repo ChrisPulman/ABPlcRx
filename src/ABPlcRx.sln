@@ -5,41 +5,37 @@ VisualStudioVersion = 17.2.32630.192
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ABPlcRx", "ABPlcRx\ABPlcRx.csproj", "{FBF73FFD-5215-46C3-A37F-A6C3208895AF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ABPlcRx.TestApp", "ABPlcRx.TestApp\ABPlcRx.TestApp.csproj", "{02E930D1-D3DB-4FC2-9807-71BAC232263C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ABPlcRx.TestApp", "ABPlcRx.TestApp\ABPlcRx.TestApp.csproj", "{02E930D1-D3DB-4FC2-9807-71BAC232263C}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionConfig", "SolutionConfig", "{30F5D33B-24CC-4074-962D-C6919D00D1F5}"
 	ProjectSection(SolutionItems) = preProject
 		..\.editorconfig = ..\.editorconfig
 		..\.gitignore = ..\.gitignore
-		..\.github\workflows\BuildOnly.yml = ..\.github\workflows\BuildOnly.yml
 		..\.github\dependabot.yml = ..\.github\dependabot.yml
-		..\Directory.Build.props = ..\Directory.Build.props
-		..\.github\workflows\dotnet.yml = ..\.github\workflows\dotnet.yml
 		..\LICENSE = ..\LICENSE
 		..\README.md = ..\README.md
 		..\stylecop.json = ..\stylecop.json
 		..\Version.json = ..\Version.json
 	EndProjectSection
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "_build", "..\build\_build.csproj", "{FCD1C061-4486-4964-A090-0C645881D24B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
-		PreRelease|Any CPU = PreRelease|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{FBF73FFD-5215-46C3-A37F-A6C3208895AF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{FBF73FFD-5215-46C3-A37F-A6C3208895AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{FBF73FFD-5215-46C3-A37F-A6C3208895AF}.PreRelease|Any CPU.ActiveCfg = PreRelease|Any CPU
-		{FBF73FFD-5215-46C3-A37F-A6C3208895AF}.PreRelease|Any CPU.Build.0 = PreRelease|Any CPU
 		{FBF73FFD-5215-46C3-A37F-A6C3208895AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FBF73FFD-5215-46C3-A37F-A6C3208895AF}.Release|Any CPU.Build.0 = Release|Any CPU
 		{02E930D1-D3DB-4FC2-9807-71BAC232263C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{02E930D1-D3DB-4FC2-9807-71BAC232263C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{02E930D1-D3DB-4FC2-9807-71BAC232263C}.PreRelease|Any CPU.ActiveCfg = PreRelease|Any CPU
-		{02E930D1-D3DB-4FC2-9807-71BAC232263C}.PreRelease|Any CPU.Build.0 = PreRelease|Any CPU
 		{02E930D1-D3DB-4FC2-9807-71BAC232263C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{02E930D1-D3DB-4FC2-9807-71BAC232263C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FCD1C061-4486-4964-A090-0C645881D24B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FCD1C061-4486-4964-A090-0C645881D24B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
