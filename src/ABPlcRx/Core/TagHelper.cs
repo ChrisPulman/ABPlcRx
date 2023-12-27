@@ -4,171 +4,170 @@
 using System.Collections;
 using System.Reflection;
 
-namespace ABPlcRx
+namespace ABPlcRx;
+
+/// <summary>
+/// Helper Tag.
+/// </summary>
+public static class TagHelper
 {
     /// <summary>
-    /// Helper Tag.
+    /// Create object from Type.
     /// </summary>
-    public static class TagHelper
+    /// <typeparam name="TType">The type of the type.</typeparam>
+    /// <param name="length">The length.</param>
+    /// <returns>A Value.</returns>
+    public static TType CreateObject<TType>(int length)
     {
-        /// <summary>
-        /// Create object from Type.
-        /// </summary>
-        /// <typeparam name="TType">The type of the type.</typeparam>
-        /// <param name="length">The length.</param>
-        /// <returns>A Value.</returns>
-        public static TType CreateObject<TType>(int length)
+        TType? obj;
+        var typeTType = typeof(TType);
+
+        if (typeTType == typeof(string))
         {
-            TType? obj;
-            var typeTType = typeof(TType);
-
-            if (typeTType == typeof(string))
-            {
-                obj = (TType)((object)string.Empty);
-            }
-            else if (typeTType.IsArray)
-            {
-                obj = (TType)Activator.CreateInstance(typeTType, length)!;
-            }
-            else
-            {
-                obj = (TType)Activator.CreateInstance(typeTType)!;
-            }
-
-            FixStringNullToEmpty(obj);
-
-            return obj;
+            obj = (TType)((object)string.Empty);
+        }
+        else if (typeTType.IsArray)
+        {
+            obj = (TType)Activator.CreateInstance(typeTType, length)!;
+        }
+        else
+        {
+            obj = (TType)Activator.CreateInstance(typeTType)!;
         }
 
-        /// <summary>
-        /// Performs Linear scaling conversion.
-        /// </summary>
-        /// <param name="tag">The tag.</param>
-        /// <param name="minRaw">The minimum raw.</param>
-        /// <param name="maxRaw">The maximum raw.</param>
-        /// <param name="minScale">The minimum scale.</param>
-        /// <param name="maxScale">The maximum scale.</param>
-        /// <returns>A Value.</returns>
-        public static double ScaleLinear(this IPlcTag tag, double minRaw, double maxRaw, double minScale, double maxScale)
+        FixStringNullToEmpty(obj);
+
+        return obj;
+    }
+
+    /// <summary>
+    /// Performs Linear scaling conversion.
+    /// </summary>
+    /// <param name="tag">The tag.</param>
+    /// <param name="minRaw">The minimum raw.</param>
+    /// <param name="maxRaw">The maximum raw.</param>
+    /// <param name="minScale">The minimum scale.</param>
+    /// <param name="maxScale">The maximum scale.</param>
+    /// <returns>A Value.</returns>
+    public static double ScaleLinear(this IPlcTag tag, double minRaw, double maxRaw, double minScale, double maxScale)
+    {
+        if (tag == null)
         {
-            if (tag == null)
-            {
-                throw new ArgumentNullException(nameof(tag));
-            }
-
-            if (minRaw > maxRaw || minScale > maxScale)
-            {
-                throw new InvalidOperationException();
-            }
-
-            return (((maxScale - minScale) / (maxRaw - minRaw)) * (((double)tag.Value!) - minRaw)) + minScale;
+            throw new ArgumentNullException(nameof(tag));
         }
 
-        /// <summary>
-        /// Performs SquareRoot conversion.
-        /// </summary>
-        /// <param name="tag">The tag.</param>
-        /// <param name="minRaw">The minimum raw.</param>
-        /// <param name="maxRaw">The maximum raw.</param>
-        /// <param name="minScale">The minimum scale.</param>
-        /// <param name="maxScale">The maximum scale.</param>
-        /// <returns>A Value.</returns>
-        public static double ScaleSquareRoot(this IPlcTag tag, double minRaw, double maxRaw, double minScale, double maxScale)
+        if (minRaw > maxRaw || minScale > maxScale)
         {
-            if (tag == null)
-            {
-                throw new ArgumentNullException(nameof(tag));
-            }
-
-            if (minRaw > maxRaw || minScale > maxScale)
-            {
-                throw new InvalidOperationException();
-            }
-
-            return (Math.Sqrt((((double)tag.Value!) - minRaw) / (maxRaw - minRaw)) * (maxScale - minScale)) + minScale;
+            throw new InvalidOperationException();
         }
 
-        /// <summary>
-        /// Number to bit array.
-        /// </summary>
-        /// <param name="value">The value.</param>
-        /// <returns>A Value.</returns>
-        public static BitArray NumberToBits(int value) => new(new[] { value });
+        return (((maxScale - minScale) / (maxRaw - minRaw)) * (((double)tag.Value!) - minRaw)) + minScale;
+    }
 
-        /// <summary>
-        /// Bite array to number.
-        /// </summary>
-        /// <param name="bits">The bits.</param>
-        /// <returns>A Value.</returns>
-        public static int BitsToNumber(BitArray bits)
+    /// <summary>
+    /// Performs SquareRoot conversion.
+    /// </summary>
+    /// <param name="tag">The tag.</param>
+    /// <param name="minRaw">The minimum raw.</param>
+    /// <param name="maxRaw">The maximum raw.</param>
+    /// <param name="minScale">The minimum scale.</param>
+    /// <param name="maxScale">The maximum scale.</param>
+    /// <returns>A Value.</returns>
+    public static double ScaleSquareRoot(this IPlcTag tag, double minRaw, double maxRaw, double minScale, double maxScale)
+    {
+        if (tag == null)
         {
-            if (bits == null)
-            {
-                throw new ArgumentNullException(nameof(bits));
-            }
-
-            var result = new int[1];
-            bits.CopyTo(result, 0);
-            return result[0];
+            throw new ArgumentNullException(nameof(tag));
         }
 
-        internal static IEnumerable<PropertyInfo> GetAccessableProperties(Type type) => type.GetProperties(BindingFlags.SetProperty | BindingFlags.Instance | BindingFlags.Public)
-                       .Where(p => p.GetSetMethod() != null);
-
-        internal static Array? GetArray(object? value)
+        if (minRaw > maxRaw || minScale > maxScale)
         {
-            var array = (Array?)value;
-            if (array?.Length <= 0)
-            {
-                throw new Exception("Cannot determine size of class, " +
-                                    "because an array is defined which has no fixed size greater than zero.");
-            }
-
-            return array;
+            throw new InvalidOperationException();
         }
 
-        /// <summary>
-        /// Fix string null to empty.
-        /// </summary>
-        /// <param name="obj">The object.</param>
-        private static void FixStringNullToEmpty(object? obj)
+        return (Math.Sqrt((((double)tag.Value!) - minRaw) / (maxRaw - minRaw)) * (maxScale - minScale)) + minScale;
+    }
+
+    /// <summary>
+    /// Number to bit array.
+    /// </summary>
+    /// <param name="value">The value.</param>
+    /// <returns>A Value.</returns>
+    public static BitArray NumberToBits(int value) => new(new[] { value });
+
+    /// <summary>
+    /// Bite array to number.
+    /// </summary>
+    /// <param name="bits">The bits.</param>
+    /// <returns>A Value.</returns>
+    public static int BitsToNumber(BitArray bits)
+    {
+        if (bits == null)
         {
-            var type = obj?.GetType();
-            if (type == typeof(string))
+            throw new ArgumentNullException(nameof(bits));
+        }
+
+        var result = new int[1];
+        bits.CopyTo(result, 0);
+        return result[0];
+    }
+
+    internal static IEnumerable<PropertyInfo> GetAccessableProperties(Type type) => type.GetProperties(BindingFlags.SetProperty | BindingFlags.Instance | BindingFlags.Public)
+                   .Where(p => p.GetSetMethod() != null);
+
+    internal static Array? GetArray(object? value)
+    {
+        var array = (Array?)value;
+        if (array?.Length <= 0)
+        {
+            throw new Exception("Cannot determine size of class, " +
+                                "because an array is defined which has no fixed size greater than zero.");
+        }
+
+        return array;
+    }
+
+    /// <summary>
+    /// Fix string null to empty.
+    /// </summary>
+    /// <param name="obj">The object.</param>
+    private static void FixStringNullToEmpty(object? obj)
+    {
+        var type = obj?.GetType();
+        if (type == typeof(string))
+        {
+            if (obj == null)
             {
-                if (obj == null)
-                {
 #pragma warning disable IDE0059 // Unnecessary assignment of a value
-                    obj = string.Empty;
+                obj = string.Empty;
 #pragma warning restore IDE0059 // Unnecessary assignment of a value
+            }
+        }
+        else if (type!.IsArray && type.GetElementType() == typeof(string))
+        {
+            var array = GetArray(obj);
+            for (var i = 0; i < array?.Length; i++)
+            {
+                if (array.GetValue(i) == null)
+                {
+                    array.SetValue(string.Empty, i);
                 }
             }
-            else if (type!.IsArray && type.GetElementType() == typeof(string))
+        }
+        else if (type.IsClass && !type.IsAbstract)
+        {
+            foreach (var property in GetAccessableProperties(type))
             {
-                var array = GetArray(obj);
-                for (var i = 0; i < array?.Length; i++)
+                if (property.PropertyType == typeof(string))
                 {
-                    if (array.GetValue(i) == null)
+                    if (property.GetValue(obj) == null)
                     {
-                        array.SetValue(string.Empty, i);
+                        property.SetValue(obj, string.Empty);
                     }
                 }
-            }
-            else if (type.IsClass && !type.IsAbstract)
-            {
-                foreach (var property in GetAccessableProperties(type))
+                else
                 {
-                    if (property.PropertyType == typeof(string))
-                    {
-                        if (property.GetValue(obj) == null)
-                        {
-                            property.SetValue(obj, string.Empty);
-                        }
-                    }
-                    else
-                    {
-                        FixStringNullToEmpty(property.GetValue(obj));
-                    }
+                    FixStringNullToEmpty(property.GetValue(obj));
                 }
             }
         }
