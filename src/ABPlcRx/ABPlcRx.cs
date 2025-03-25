@@ -11,7 +11,7 @@ namespace ABPlcRx;
 /// </summary>
 public class ABPlcRx : IABPlcRx
 {
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = [];
     private readonly ABPlc _plc;
     private readonly TimeSpan _scanInterval;
     private bool _scanEnabled;

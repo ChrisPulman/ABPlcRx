@@ -109,8 +109,7 @@ internal static class DataLength
         else if (!NativeTypes.TryGetValue(type, out size) && type.IsClass && !type.IsAbstract)
         {
             size += TagHelper.GetAccessableProperties(type)
-                             .Select(a => GetSizeObject(a.GetValue(obj)))
-                             .Sum();
+                             .Sum(a => GetSizeObject(a.GetValue(obj)));
         }
 
         return size;

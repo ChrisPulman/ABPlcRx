@@ -159,7 +159,7 @@ internal class PlcTagCollection : IDisposable
     /// Performs read of Group of Tags.
     /// </summary>
     /// <returns>A Value.</returns>
-    public IEnumerable<PlcTagResult> Read() => Tags.Select(a => a.Read()).ToArray();
+    public IEnumerable<PlcTagResult> Read() => [.. Tags.Select(a => a.Read())];
 
     /// <summary>
     /// Remove tag.
@@ -186,10 +186,7 @@ internal class PlcTagCollection : IDisposable
     /// Performs write of Group of Tags.
     /// </summary>
     /// <returns>A Value.</returns>
-    public IEnumerable<PlcTagResult> Write()
-    {
-        return Tags.Select(a => a.Write());
-    }
+    public IEnumerable<PlcTagResult> Write() => Tags.Select(a => a.Write());
 
     /// <summary>
     /// Releases unmanaged and - optionally - managed resources.
