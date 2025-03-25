@@ -6,6 +6,7 @@ namespace ABPlcRx;
 /// <summary>
 /// Plc Tag Result.
 /// </summary>
+[Serializable]
 public class PlcTagResult
 {
     internal PlcTagResult(IPlcTag tag, DateTime timestamp, long executionTime, int statusCode)

@@ -12,7 +12,7 @@ namespace ABPlcRx;
 /// Initializes a new instance of the <see cref="PlcTagException"/> class.
 /// </remarks>
 /// <param name="result">The result.</param>
-[System.Serializable]
+[Serializable]
 #pragma warning disable RCS1194 // Implement exception constructors.
 public class PlcTagException(PlcTagResult result) : Exception("Error executing PlcTag operation.")
 #pragma warning restore RCS1194 // Implement exception constructors.
