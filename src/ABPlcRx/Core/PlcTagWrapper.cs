@@ -29,19 +29,19 @@ public class PlcTagWrapper
     /// Get bit array from value.
     /// </summary>
     /// <returns>A Value.</returns>
-    public BitArray GetBits() => new(new[] { Convert.ToInt32(GetNumericValue()) });
+    public BitArray GetBits() => new([Convert.ToInt32(GetNumericValue())]);
 
     /// <summary>
     /// Get bit array from value.
     /// </summary>
     /// <returns>A Value.</returns>
-    public bool[] GetBitsArray() => GetBits().Cast<bool>().ToArray();
+    public bool[] GetBitsArray() => [.. GetBits().Cast<bool>()];
 
     /// <summary>
     /// Get bit string format.
     /// </summary>
     /// <returns>A Value.</returns>
-    public string GetBitsString() => new(GetBits().Cast<bool>().Select(a => a ? '1' : '0').ToArray());
+    public string GetBitsString() => new([.. GetBits().Cast<bool>().Select(a => a ? '1' : '0')]);
 
     /// <summary>
     /// Get local value Float32.
