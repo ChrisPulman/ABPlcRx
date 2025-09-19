@@ -14,7 +14,7 @@
     <Nullable>enable</Nullable>
     <PackageIcon>logo.png</PackageIcon>
     <Configurations>Debug;Release</Configurations>
-    <PackageReleaseNotes>Compatability with Net 6/ 7/ 8 and netstandard2.0</PackageReleaseNotes>
+    <PackageReleaseNotes>Compatability with Net 8/ 9/ 10 and netstandard2.0</PackageReleaseNotes>
     <PackageTags>Rockwell;AB;Allen;Bradley;PLC;Micrologix;Controllogix;CompactLogix;PLC-5;rx;reactive;extensions;observable;LINQ;net;netstandard</PackageTags>
     <EnableNETAnalyzers>True</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>

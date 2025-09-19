@@ -57,11 +57,42 @@ public class PlcTagResult
     /// <returns>
     /// A Value.
     /// </returns>
-    public static PlcTagResult Reduce(IEnumerable<PlcTagResult> results) => new(
-        null!,
-        results.Min(a => a.Timestamp),
-        results.Sum(a => a.ExecutionTime),
-        results.Sum(a => a.StatusCode) != 0 ? results.Max(a => a.StatusCode) : 0);
+    public static PlcTagResult Reduce(IEnumerable<PlcTagResult> results)
+    {
+        if (results == null)
+        {
+            throw new ArgumentNullException(nameof(results));
+        }
+
+        IPlcTag? tag = null;
+        var minTs = DateTime.MaxValue;
+        long execSum = 0;
+        var worstStatus = 0;
+        var any = false;
+
+        foreach (var r in results)
+        {
+            if (!any)
+            {
+                tag = r.Tag;
+                any = true;
+            }
+
+            if (r.Timestamp < minTs)
+            {
+                minTs = r.Timestamp;
+            }
+
+            execSum += r.ExecutionTime;
+
+            if (r.StatusCode != 0 && r.StatusCode < worstStatus)
+            {
+                worstStatus = r.StatusCode;
+            }
+        }
+
+        return new PlcTagResult(tag!, minTs == DateTime.MaxValue ? DateTime.UtcNow : minTs, execSum, worstStatus);
+    }
 
     /// <summary>
     /// Information result.

@@ -23,7 +23,7 @@ public class PlcTagWrapper
     /// </summary>
     /// <param name="index">The index.</param>
     /// <returns>A Value.</returns>
-    public bool GetBit(int index) => (Convert.ToInt64(GetNumericValue()) & (1 << index)) != 0;
+    public bool GetBit(int index) => (Convert.ToInt64(GetNumericValue()) & (1L << index)) != 0;
 
     /// <summary>
     /// Get bit array from value.
@@ -190,10 +190,9 @@ public class PlcTagWrapper
             throw new ArgumentNullException(nameof(bits));
         }
 
-        for (var i = 0; i < _tag.Size * 8; i++)
-        {
-            SetBit(i, bits[i]);
-        }
+        var data = new int[1];
+        bits.CopyTo(data, 0);
+        Set(data[0]);
     }
 
     /// <summary>
@@ -325,8 +324,13 @@ public class PlcTagWrapper
     /// <exception cref="System.ArgumentException">Error data type!.</exception>
     internal object? Get(object? obj, int offset = 0)
     {
-        var type = obj?.GetType();
-        if (type!.IsArray)
+        if (obj is null)
+        {
+            return null;
+        }
+
+        var type = obj.GetType();
+        if (type.IsArray)
         {
             var array = TagHelper.GetArray(obj);
             for (var i = 0; i < array?.Length; i++)
@@ -384,7 +388,7 @@ public class PlcTagWrapper
         }
         else if (type.IsClass && !type.IsAbstract)
         {
-            return GetType(obj!, offset);
+            return GetType(obj, offset);
         }
         else
         {
@@ -400,8 +404,13 @@ public class PlcTagWrapper
     /// <exception cref="System.ArgumentException">Error data type!.</exception>
     internal void Set(object? value, int offset = 0)
     {
-        var type = value?.GetType();
-        if (type!.IsArray)
+        if (value is null)
+        {
+            return;
+        }
+
+        var type = value.GetType();
+        if (type.IsArray)
         {
             foreach (var el in TagHelper.GetArray(value)!)
             {
@@ -411,51 +420,51 @@ public class PlcTagWrapper
         }
         else if (type == typeof(long))
         {
-            SetInt64((long)value!, offset);
+            SetInt64((long)value, offset);
         }
         else if (type == typeof(ulong))
         {
-            SetUInt64((ulong)value!, offset);
+            SetUInt64((ulong)value, offset);
         }
         else if (type == typeof(int))
         {
-            SetInt32((int)value!, offset);
+            SetInt32((int)value, offset);
         }
         else if (type == typeof(uint))
         {
-            SetUInt32((uint)value!, offset);
+            SetUInt32((uint)value, offset);
         }
         else if (type == typeof(short))
         {
-            SetInt16((short)value!, offset);
+            SetInt16((short)value, offset);
         }
         else if (type == typeof(ushort))
         {
-            SetUInt16((ushort)value!, offset);
+            SetUInt16((ushort)value, offset);
         }
         else if (type == typeof(sbyte))
         {
-            SetInt8((sbyte)value!, offset);
+            SetInt8((sbyte)value, offset);
         }
         else if (type == typeof(byte))
         {
-            SetUInt8((byte)value!, offset);
+            SetUInt8((byte)value, offset);
         }
         else if (type == typeof(float))
         {
-            SetFloat32((float)value!, offset);
+            SetFloat32((float)value, offset);
         }
         else if (type == typeof(double))
         {
-            SetFloat64((double)value!, offset);
+            SetFloat64((double)value, offset);
         }
         else if (type == typeof(string))
         {
-            SetString((string)value!, offset);
+            SetString((string)value, offset);
         }
         else if (type.IsClass && !type.IsAbstract)
         {
-            SetType(value!, offset);
+            SetType(value, offset);
         }
         else
         {
@@ -463,19 +472,16 @@ public class PlcTagWrapper
         }
     }
 
-    private object? GetNumericValue(int offset = 0)
+    private object? GetNumericValue(int offset = 0) => Type.GetTypeCode(_tag.TypeValue) switch
     {
-        if (IsNumericInteger())
-        {
-            return Get(_tag.Value, offset);
-        }
-
-        throw new ArgumentException("Error data type!");
-    }
-
-    private bool IsNumericInteger() => Type.GetTypeCode(_tag.TypeValue) switch
-    {
-        TypeCode.Byte or TypeCode.SByte or TypeCode.UInt16 or TypeCode.UInt32 or TypeCode.UInt64 or TypeCode.Int16 or TypeCode.Int32 or TypeCode.Int64 => true,
-        _ => false,
+        TypeCode.Byte => GetUInt8(offset),
+        TypeCode.SByte => GetInt8(offset),
+        TypeCode.UInt16 => GetUInt16(offset),
+        TypeCode.UInt32 => GetUInt32(offset),
+        TypeCode.UInt64 => GetUInt64(offset),
+        TypeCode.Int16 => GetInt16(offset),
+        TypeCode.Int32 => GetInt32(offset),
+        TypeCode.Int64 => GetInt64(offset),
+        _ => throw new ArgumentException("Error data type!"),
     };
 }

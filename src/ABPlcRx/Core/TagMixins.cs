@@ -1,7 +1,6 @@
 ﻿// Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using System;
 using System.Collections;
 
 namespace ABPlcRx;
@@ -47,22 +46,6 @@ public static class TagMixins
         bits.CopyTo(raw, 0);
         return BitConverter.ToInt16(raw, 0);
     }
-
-    /////// <summary>
-    /////// Sets the bit.
-    /////// </summary>
-    /////// <param name="source">The source.</param>
-    /////// <param name="bit">The bit.</param>
-    /////// <param name="value">if set to <c>true</c> [value].</param>
-    /////// <returns>A short.</returns>
-    ////public static short SetBit(short source, int bit, bool value)
-    ////{
-    ////    var bits = new BitArray(BitConverter.GetBytes(source));
-    ////    bits[bit] = value;
-    ////    var raw = new byte[2];
-    ////    bits.CopyTo(raw, 0);
-    ////    return BitConverter.ToInt16(raw, 0);
-    ////}
 
     /// <summary>
     /// Gets the bit.

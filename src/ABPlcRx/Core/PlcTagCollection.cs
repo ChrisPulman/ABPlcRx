@@ -15,7 +15,8 @@ internal class PlcTagCollection : IDisposable
     private readonly object _lockScan = new();
     private readonly Subject<IEnumerable<PlcTagResult>> _readResultSubject = new();
     private readonly IDisposable? _scanDisposable;
-    private readonly List<IPlcTag> _tags = new();
+    private readonly List<IPlcTag> _tags = [];
+    private IObservable<IEnumerable<PlcTagResult>>? _cachedReadResults;
     private bool _disposed;
 
     internal PlcTagCollection(ABPlc plc, TimeSpan scanInterval)
@@ -59,7 +60,7 @@ internal class PlcTagCollection : IDisposable
     /// <value>
     /// The read results.
     /// </value>
-    public IObservable<IEnumerable<PlcTagResult>> ReadResults => _readResultSubject.Publish().RefCount();
+    public IObservable<IEnumerable<PlcTagResult>> ReadResults => _cachedReadResults ??= _readResultSubject.Publish().RefCount();
 
     /// <summary>
     /// Gets tags.

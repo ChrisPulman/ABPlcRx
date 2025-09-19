@@ -93,7 +93,7 @@ public static class TagHelper
     /// </summary>
     /// <param name="value">The value.</param>
     /// <returns>A Value.</returns>
-    public static BitArray NumberToBits(int value) => new(new[] { value });
+    public static BitArray NumberToBits(int value) => new([value]);
 
     /// <summary>
     /// Bite array to number.
