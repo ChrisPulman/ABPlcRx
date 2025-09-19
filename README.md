@@ -4,7 +4,7 @@
 
 <p align="left">
   <a href="https://github.com/ChrisPulman/ABPlcRx">
-    <img alt="ABPlcRx" src="https://github.com/ChrisPulman/ABPlcRx/blob/main/Images/logo.png" width="200"/>
+    <img alt="ABPlcRx" src="Images/logo.png" width="200"/>
   </a>
 </p>
 
