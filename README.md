@@ -1,4 +1,4 @@
-![License](https://img.shields.io/github/license/ChrisPulman/ABPlcRx.svg) [![Build](https://github.com/ChrisPulman/ABPlcRx/actions/workflows/BuildOnly.yml/badge.svg)](https://github.com/ChrisPulman/ABPlcRx/actions/workflows/BuildOnly.yml) ![Nuget](https://img.shields.io/nuget/dt/ABPlcRx?color=pink&style=plastic) [![NuGet](https://img.shields.io/nuget/v/ABPlcRx.svg?style=plastic)](https://www.nuget.org/packages/ABPlcRx)
+﻿![License](https://img.shields.io/github/license/ChrisPulman/ABPlcRx.svg) [![Build](https://github.com/ChrisPulman/ABPlcRx/actions/workflows/BuildOnly.yml/badge.svg)](https://github.com/ChrisPulman/ABPlcRx/actions/workflows/BuildOnly.yml) ![Nuget](https://img.shields.io/nuget/dt/ABPlcRx?color=pink&style=plastic) [![NuGet](https://img.shields.io/nuget/v/ABPlcRx.svg?style=plastic)](https://www.nuget.org/packages/ABPlcRx)
 
 ![Alt](https://repobeats.axiom.co/api/embed/24d527be4f32c7d50e5e907b50687874772158ee.svg "Repobeats analytics image")
 
@@ -8,67 +8,168 @@
   </a>
 </p>
 
-
 # ABPlcRx
 
-## A Reative Allen Bradley PLC library Built on top of [libplctag](https://github.com/libplctag/libplctag)
+A reactive Allen‑Bradley PLC client built on top of [libplctag](https://github.com/libplctag/libplctag). It provides a simple, high‑performance, reactive API for reading/writing tags from Rockwell/Allen‑Bradley controllers.
 
+Warning – Disclaimer
+PLCs control equipment. Mistakes can cause loss of property, production, or life. Use extreme caution. No warranty of suitability is provided.
 
-## WARNING - DISCLAIMER
+Supported PLC families (via libplctag)
+- ControlLogix/CompactLogix (LGX) over CIP EtherNet/IP
+- Micro800 family where supported by libplctag
+- PLC‑5, SLC 500, MicroLogix (Ethernet/ENI/DH+ bridging where supported)
+- Additional families supported by libplctag may be usable
 
-Note: **PLCs control many kinds of equipment and loss of property, production or even life can happen if mistakes in programming or access are made.  Always use caution when accessing or programming PLCs!**
+Core features
+- Create tags and group them for bulk operations
+- Reactive APIs (IObservable) for on‑change updates
+- Read/write primitives: 8/16/32/64‑bit signed/unsigned, 32/64‑bit float
+- Bit addressing helpers for coil/word bits
+- String and structure support (libplctag style)
+- Bulk read/write across groups
+- Health monitoring (Ping/ObservePing)
 
-We make no claims or warrants about the suitability of this code for any purpose.
+Getting started
+Installation
+- Install the NuGet package:
+  - Package Manager: Install-Package ABPlcRx
+  - .NET CLI: dotnet add package ABPlcRx
+- ABPlcRx depends on libplctag; the NuGet dependency brings required bindings.
 
-Be careful!
+Basic concepts
+- Variable: your app’s key for a tag (free‑form string)
+- TagName: the PLC’s address/name for the tag (e.g., B3:3, N7:0, MyTag)
+- TagGroup: logical group to batch operations (e.g., “Default”, “Motion”)
+- Types and bits: to read/write a bit, create a tag as short (Int16) and use bit index 0‑15
 
-#### PLC Support
+Quick start
+```csharp
+using ABPlcRx;
+using System;
+using System.Reactive.Disposables;
 
-- support for Rockwell/Allen-Bradley ControlLogix(tm) PLCs via CIP-EtherNet/IP (CIP/EIP or EIP).
-  - read/write 8, 16, 32, and 64-bit signed and unsigned integers.
-  - read/write single bits/booleans.
-  - read/write 32-bit and 64-bit IEEE format (little endian) floating point.
-  - raw support for user-defined structures (you need to pull out the data piece by piece)
-  - read/write arrays of the above.
-  - multiple-request support per packet.
-  - packet size negotiation with newer firmware (version 20+) and hardware.
-  - tag listing, both controller and program tags.
-- support for Rockwell/Allen-Bradley Micro 850 PLCs.
-  - Support as for ControlLogix where possible.
-- support for older Rockwell/Allen-Bradley such as PLC-5 PLCs (Ethernet upgraded to support Ethernet/IP), SLC 500 and MicroLogix with Ethernet via CIP.
-  - read/write of 16-bit INT.
-  - read/write of 32-bit floating point.
-  - read/write of arrays of the above (arrays not tested on SLC 500).
-- support for older Rockwell/Allen-Bradley PLCs accessed over a DH+ bridge (i.e. a LGX chassis with a DHRIO module) such as PLC/5, SLC 500 and MicroLogix.
-  - read/write of 16-bit INT.
-  - read/write of 32-bit floating point.
-  - read/write of arrays of the above.
-- Support for Omron NX/NJ series PLCs as for Allen-Bradley Micro800.
-- Support for Modbus TCP.
+var disposables = new CompositeDisposable();
 
-- Code Sample
-  - AddUpdateTagItem - this allows the creation of a Tag, Variable is used within your application and is a key, TagName is the variable as per the connected PLC, TagGroup allows the creation of Tag Groups and will allow functions to be called that only affect that group.
-  - Value - Read and Write values. Booleans must use type of short when creating a tag, then set the bit value to the relevant (16 bit array) bit you wish to read or write.
-  - Observe - Observable stream of values updated On Change.
-  - Read() - reads all Tags from the PLC.
-  - Write() - writes all Tags to the PLC.
+// SLC/PLC5/MicroLogix example (500ms scan)
+var slc = new ABPlcRx(PlcType.SLC, "192.168.1.50", TimeSpan.FromMilliseconds(500));
+disposables.Add(slc);
 
-```c#
-// Create PLC
-var microLogix = new ABPlcRx(PlcType.SLC, "172.16.17.4", TimeSpan.FromMilliseconds(500));
-_disposables.Add(microLogix);
+// Create a word tag and use bit addressing (B3:3/0)
+slc.AddUpdateTagItem<short>("LightOn", "B3:3", "Default");
 
-// Add tags to PLC - Variable can be any name and is used as a Key for further functions.
-//                 - TagName can be any valid AB tag relevant to the PLC Type connectedz.
-//                 - The Tag Type must be a short to read a 16 bit array of bool, use the bit to specify which bit to use.
-//                 - TagGroup can be any value to group tags together providing the ability to read or write a group of tags.
-microLogix.AddUpdateTagItem<short>("LightOn", "B3:3", "Default");
+// Observe changes (bool via bit 0)
+disposables.Add(
+    slc.Observe<bool>("LightOn", bit: 0)
+       .Subscribe(v => Console.WriteLine($"LightOn = {v}"))
+);
 
-// Subscribe to tag updates
-_disposables.Add(microLogix.Observe<bool>("LightOn", 0).Subscribe(value => Console.WriteLine($"B3:3/0 = {value}")));
-
-// Update tag value (will be sent to PLC)
-var current = !microLogix.Value<bool>("LightOn", 0);
-microLogix.Value<bool>("LightOn", current, 0);
-Console.Out.WriteLine($"Written {current} to PLC B3:3/0");
+// Toggle the bit and write
+var current = !slc.Value<bool>("LightOn", bit: 0);
+slc.Value("LightOn", current, bit: 0); // AutoWriteValue=true writes immediately
+Console.WriteLine($"Wrote {current} -> B3:3/0");
 ```
+
+ControlLogix/CompactLogix (LGX) example
+```csharp
+// For LGX you must provide a path (default "1,0" = backplane, slot 0)
+var lgx = new ABPlcRx(PlcType.LGX, "192.168.1.60", TimeSpan.FromMilliseconds(200),
+                      timeOut: TimeSpan.FromSeconds(2), path: "1,0");
+
+// Controller tag named MyDINT
+lgx.AddUpdateTagItem<int>("Counter", "MyDINT", "Default");
+
+// Observe numeric values
+glx.Observe<int>("Counter").Subscribe(v => Console.WriteLine($"Counter={v}"));
+
+// Increment and write
+glx.Value("Counter", lgx.Value<int>("Counter") + 1);
+```
+
+Reactive API highlights
+- Observe<T>(variable, bit = -1): stream values on change, supports late‑added tags
+- ObserveMany(params string[] variables): latest values as a dictionary
+- ObserveGroup(groupName): emits tag objects in a group when they change
+- ObserveSampled<T>(variable, sampleInterval, bit, scheduler): sampled stream for rate limiting
+- ObserveErrors(): only tag operations that returned an error
+- CreateWriter<T>(variable, bit): returns an IObserver<T> that writes on OnNext
+
+Examples
+Observe multiple variables
+```csharp
+// Emits { "LightOn": true, "Counter": 42 }
+slc.ObserveMany("LightOn", "Counter")
+   .Subscribe(dict => Console.WriteLine(string.Join(", ", dict.Select(kv => $"{kv.Key}={kv.Value}"))));
+```
+
+Group operations and bulk I/O
+```csharp
+// Group creation is implicit via AddUpdateTagItem
+slc.AddUpdateTagItem<short>("Alarm", "B3:10", "Safety");
+slc.AddUpdateTagItem<short>("Guard", "B3:11", "Safety");
+
+// Bulk read/write across all groups
+var results = slc.Read();
+var wrote = slc.Write();
+```
+
+Health monitoring
+```csharp
+// One‑off ping
+var ok = slc.Ping();
+
+// Observe ping results every 2 seconds
+slc.ObservePing(TimeSpan.FromSeconds(2))
+   .Subscribe(alive => Console.WriteLine($"PLC reachable: {alive}"));
+```
+
+Advanced: writing with an observer
+```csharp
+var writer = slc.CreateWriter<bool>("LightOn", bit: 0);
+writer.OnNext(true);  // writes and commits
+```
+
+Configuration and options
+- ScanEnabled: enable/disable background scanning by group
+- AutoWriteValue: when true (default), setting Value(tag) writes immediately
+- Timeout: communications timeout (ms) via constructor timeOut
+- Groups: use the tagGroup parameter to logically separate tags
+
+API surface (high level)
+- ABPlcRx (implements IABPlcRx)
+  - AddUpdateTagItem<T>(variable, tagName, tagGroup = "Default")
+  - Observe<T>(variable, bit = -1)
+  - ObserveMany(params string[] variables)
+  - ObserveGroup(groupName)
+  - ObserveSampled<T>(variable, sampleInterval, bit = -1, scheduler = null)
+  - ObserveErrors()
+  - CreateWriter<T>(variable, bit = -1)
+  - Value<T>(variable, bit = -1) / Value<T>(variable, value, bit = -1)
+  - Read()/Read(variable) and Write()/Write(variable)
+  - Ping(bool echo = false), PingAsync(...), ObservePing(interval,...)
+
+Data types and bit access
+- To treat a single bit as a boolean, create the tag as `short` and use the `bit` parameter (0‑15).
+- For numeric tags use C# primitive types: sbyte/byte/short/ushort/int/uint/long/ulong/float/double.
+- Strings and structure types are supported where the PLC and libplctag support them.
+
+Error handling
+- Each read/write yields a PlcTagResult with StatusCode (see PlcTagStatus).
+- If `FailOperationRaiseException` is set true on the underlying controller, failed operations will throw `PlcTagException`.
+
+Performance notes
+- Tags are grouped internally; bulk `Read()`/`Write()` iterate groups for fewer round trips.
+- Tag lookups are cached; prefer consistent `variable` keys.
+- Use `ObserveSampled` to reduce update rates to UI or logs.
+
+Troubleshooting
+- LGX controllers require a valid `path` (e.g., "1,0" for backplane/slot0).
+- Ensure your PLC networking, firewall, and CIP routes are reachable from your app host.
+- Use `Ping()`/`ObservePing()` to monitor reachability.
+
+License
+MIT. See LICENSE.
+
+---
+
+**ABPlcRx** - Empowering Industrial Automation with Reactive Technology ⚡🏭

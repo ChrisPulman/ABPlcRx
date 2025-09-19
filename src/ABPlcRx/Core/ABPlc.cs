@@ -1,7 +1,10 @@
 ﻿// Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using System.Collections.ObjectModel;
 using System.Net.NetworkInformation;
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
 
 namespace ABPlcRx;
 
@@ -10,7 +13,14 @@ namespace ABPlcRx;
 /// </summary>
 internal class ABPlc : IDisposable
 {
-    private readonly Dictionary<string, PlcTagCollection> _tagList = new();
+    private readonly Dictionary<string, PlcTagCollection> _tagList = [];
+    private readonly Dictionary<string, IPlcTag> _tagsByVariable = new(StringComparer.Ordinal);
+    private readonly object _syncRoot = new();
+    private readonly Subject<IPlcTag> _tagsAdded = new();
+    private readonly Subject<IPlcTag> _tagsRemoved = new();
+
+    private ReadOnlyCollection<PlcTagCollection>? _cachedTagCollections;
+    private Ping? _ping;
     private bool _disposed;
 
     /// <summary>
@@ -79,7 +89,26 @@ internal class ABPlc : IDisposable
     /// Gets the Tag List.
     /// </summary>
     /// <returns>A Value.</returns>
-    public IReadOnlyList<PlcTagCollection> TagCollectionList => _tagList.Values.ToList().AsReadOnly();
+    public IReadOnlyList<PlcTagCollection> TagCollectionList
+    {
+        get
+        {
+            lock (_syncRoot)
+            {
+                return _cachedTagCollections ??= _tagList.Values.ToList().AsReadOnly();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets observable of tags added to this controller.
+    /// </summary>
+    public IObservable<IPlcTag> TagsAdded => _tagsAdded.AsObservable();
+
+    /// <summary>
+    /// Gets observable of tags removed from this controller.
+    /// </summary>
+    public IObservable<IPlcTag> TagsRemoved => _tagsRemoved.AsObservable();
 
     /// <summary>
     /// Gets iP address of the gateway for this protocol. Could be the IP address of the PLC you want to access.
@@ -95,7 +124,20 @@ internal class ABPlc : IDisposable
     /// Gets all Tags.
     /// </summary>
     /// <returns>A Value.</returns>
-    public IReadOnlyList<IPlcTag> Tags => TagCollectionList.SelectMany(a => a.Tags).Distinct().ToList().AsReadOnly();
+    public IReadOnlyList<IPlcTag> Tags
+    {
+        get
+        {
+            // Snapshot to avoid holding lock during potential long operations downstream
+            List<PlcTagCollection> groups;
+            lock (_syncRoot)
+            {
+                groups = [.. _tagList.Values];
+            }
+
+            return groups.SelectMany(a => a.Tags).ToList().AsReadOnly();
+        }
+    }
 
     /// <summary>
     /// Gets or sets communication timeout millisec.
@@ -113,8 +155,43 @@ internal class ABPlc : IDisposable
     public PlcTagCollection CreateTagList(string name, TimeSpan scanInterval)
     {
         var tags = new PlcTagCollection(this, scanInterval);
-        _tagList.Add(name, tags);
+        lock (_syncRoot)
+        {
+            _tagList.Add(name, tags);
+            _cachedTagCollections = null; // invalidate cache
+        }
+
         return tags;
+    }
+
+    /// <summary>
+    /// Removes a tag group, disposing its resources and cleaning lookups.
+    /// </summary>
+    /// <param name="tagGroup">The tag group.</param>
+    /// <returns>True if removed.</returns>
+    public bool RemoveTagGroup(string tagGroup)
+    {
+        PlcTagCollection? group;
+        lock (_syncRoot)
+        {
+            if (!_tagList.TryGetValue(tagGroup, out group))
+            {
+                return false;
+            }
+
+            foreach (var tag in group.Tags.ToArray())
+            {
+                _tagsByVariable.Remove(tag.Variable);
+                _tagsRemoved.OnNext(tag);
+            }
+
+            _tagList.Remove(tagGroup);
+            _cachedTagCollections = null;
+        }
+
+        // Dispose outside lock
+        group.Dispose();
+        return true;
     }
 
     /// <summary>
@@ -133,9 +210,10 @@ internal class ABPlc : IDisposable
     /// <returns>A Value.</returns>
     public bool Ping(bool echo = false)
     {
-        using (var ping = new Ping())
+        lock (_syncRoot)
         {
-            var reply = ping.Send(IPAddress);
+            _ping ??= new Ping();
+            var reply = _ping.Send(IPAddress);
             if (echo)
             {
                 Console.Out.WriteLine($"Address: {reply.Address}");
@@ -151,11 +229,69 @@ internal class ABPlc : IDisposable
     }
 
     /// <summary>
+    /// Ping controller asynchronously.
+    /// </summary>
+    /// <param name="echo">True echo result to standard output.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A Value.</returns>
+    public async Task<bool> PingAsync(bool echo = false, CancellationToken cancellationToken = default)
+    {
+        Ping? ping;
+        lock (_syncRoot)
+        {
+            _ping ??= new Ping();
+            ping = _ping;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var reply = await ping.SendPingAsync(IPAddress).ConfigureAwait(false);
+        if (cancellationToken.IsCancellationRequested)
+        {
+            throw new OperationCanceledException(cancellationToken);
+        }
+
+        if (echo)
+        {
+            Console.Out.WriteLine($"Address: {reply.Address}");
+            Console.Out.WriteLine($"RoundTrip time: {reply.RoundtripTime}");
+            Console.Out.WriteLine($"Time to live: {reply.Options?.Ttl}");
+            Console.Out.WriteLine($"Don't fragment: {reply.Options?.DontFragment}");
+            Console.Out.WriteLine($"Buffer size: {reply.Buffer?.Length}");
+            Console.Out.WriteLine($"Status: {reply.Status}");
+        }
+
+        return reply.Status == IPStatus.Success;
+    }
+
+    /// <summary>
     /// Gets the PLC tag.
     /// </summary>
     /// <param name="variable">The name.</param>
     /// <returns>A Tag.</returns>
-    public IPlcTag? GetPlcTag(string variable) => Tags.FirstOrDefault(a => a.Variable == variable)!;
+    public IPlcTag? GetPlcTag(string variable)
+    {
+        lock (_syncRoot)
+        {
+            if (_tagsByVariable.TryGetValue(variable, out var tag))
+            {
+                return tag;
+            }
+        }
+
+        // Fallback lookup if not yet in the cache (should be rare)
+        return Tags.FirstOrDefault(a => a.Variable == variable);
+    }
+
+    /// <summary>
+    /// Tries to get the PLC tag by variable key.
+    /// </summary>
+    public bool TryGetPlcTag(string variable, out IPlcTag tag)
+    {
+        lock (_syncRoot)
+        {
+            return _tagsByVariable.TryGetValue(variable, out tag!);
+        }
+    }
 
     /// <summary>
     /// Determines whether [has tag group] [the specified tag group].
@@ -164,14 +300,26 @@ internal class ABPlc : IDisposable
     /// <returns>
     ///   <c>true</c> if [has tag group] [the specified tag group]; otherwise, <c>false</c>.
     /// </returns>
-    public bool HasTagGroup(string tagGroup) => _tagList.ContainsKey(tagGroup);
+    public bool HasTagGroup(string tagGroup)
+    {
+        lock (_syncRoot)
+        {
+            return _tagList.ContainsKey(tagGroup);
+        }
+    }
 
     /// <summary>
     /// Gets the tag group.
     /// </summary>
     /// <param name="tagGroup">The tag group.</param>
     /// <returns>A Plc Tag Collection.</returns>
-    public PlcTagCollection GetTagGroup(string tagGroup) => _tagList[tagGroup];
+    public PlcTagCollection GetTagGroup(string tagGroup)
+    {
+        lock (_syncRoot)
+        {
+            return _tagList[tagGroup];
+        }
+    }
 
     /// <summary>
     /// Adds the tag to group.
@@ -183,13 +331,71 @@ internal class ABPlc : IDisposable
     /// <param name="tagGroup">The tag group.</param>
     public void AddTagToGroup<T>(string variable, string tagName, TimeSpan scanInterval, string tagGroup = "Default")
     {
-        if (!HasTagGroup(tagGroup))
+        PlcTagCollection group;
+        IPlcTag tag;
+        lock (_syncRoot)
         {
-            CreateTagList(tagGroup, scanInterval);
+            if (!_tagList.TryGetValue(tagGroup, out group!))
+            {
+                group = CreateTagList(tagGroup, scanInterval);
+            }
+
+            tag = group.CreateTagType<T>(variable, tagName);
+            _tagsByVariable[variable] = tag; // fast future lookup
         }
 
-        _tagList[tagGroup].CreateTagType<T>(variable, tagName);
+        _tagsAdded.OnNext(tag);
     }
+
+    /// <summary>
+    /// Bulk read across all groups.
+    /// </summary>
+    public IReadOnlyList<PlcTagResult> ReadAll()
+    {
+        List<PlcTagCollection> groups;
+        lock (_syncRoot)
+        {
+            groups = [.. _tagList.Values];
+        }
+
+        var results = new List<PlcTagResult>(groups.Sum(g => g.Tags.Count));
+        foreach (var g in groups)
+        {
+            results.AddRange(g.Read());
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Bulk write across all groups.
+    /// </summary>
+    public IReadOnlyList<PlcTagResult> WriteAll()
+    {
+        List<PlcTagCollection> groups;
+        lock (_syncRoot)
+        {
+            groups = [.. _tagList.Values];
+        }
+
+        var results = new List<PlcTagResult>(groups.Sum(g => g.Tags.Count));
+        foreach (var g in groups)
+        {
+            results.AddRange(g.Write());
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Async bulk read across all groups.
+    /// </summary>
+    public Task<IReadOnlyList<PlcTagResult>> ReadAllAsync(CancellationToken cancellationToken = default) => Task.Run(ReadAll, cancellationToken);
+
+    /// <summary>
+    /// Async bulk write across all groups.
+    /// </summary>
+    public Task<IReadOnlyList<PlcTagResult>> WriteAllAsync(CancellationToken cancellationToken = default) => Task.Run(WriteAll, cancellationToken);
 
     /// <summary>
     /// Releases unmanaged and - optionally - managed resources.
@@ -201,12 +407,20 @@ internal class ABPlc : IDisposable
         {
             if (disposing)
             {
-                foreach (var group in _tagList)
+                foreach (var group in _tagList.Values.ToArray())
                 {
-                    group.Value.Dispose();
+                    group.Dispose();
                 }
 
                 _tagList.Clear();
+                _tagsByVariable.Clear();
+                _cachedTagCollections = null;
+                _ping?.Dispose();
+
+                _tagsAdded.OnCompleted();
+                _tagsRemoved.OnCompleted();
+                _tagsAdded.Dispose();
+                _tagsRemoved.Dispose();
             }
 
             _disposed = true;

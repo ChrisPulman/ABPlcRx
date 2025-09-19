@@ -2,8 +2,8 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using System.Runtime.Serialization.Formatters.Binary;
 using libplctag.NativeImport;
 
 namespace ABPlcRx;
@@ -84,7 +84,7 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
     /// <value>
     /// The changed.
     /// </value>
-    public IObservable<PlcTagResult> Changed => _changedSubject;
+    public IObservable<PlcTagResult> Changed => _changedSubject.AsObservable();
 
     /// <summary>
     /// Gets a value indicating whether indicates whether or not a value must be read from the PLC.
@@ -210,7 +210,7 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
     /// <returns>A Value.</returns>
     public PlcTagResult Read()
     {
-        var timestamp = DateTime.Now;
+        var timestamp = DateTime.UtcNow;
         var watch = Stopwatch.StartNew();
         var statusCode = plctag.plc_tag_read(Handle, ABPlc.Timeout);
 
@@ -227,7 +227,7 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
 
         if (!_changedSubject.IsDisposed)
         {
-            _changedSubject?.OnNext(result);
+            _changedSubject.OnNext(result);
         }
 
         return result;
@@ -252,7 +252,7 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
 
         ValueManager.Set(_value, 0);
 
-        var timestamp = DateTime.Now;
+        var timestamp = DateTime.UtcNow;
         var watch = Stopwatch.StartNew();
         var statusCode = plctag.plc_tag_write(Handle, ABPlc.Timeout);
         watch.Stop();
@@ -280,9 +280,10 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
             if (disposing)
             {
                 _changedSubject.Dispose();
-                plctag.plc_tag_destroy(Handle);
             }
 
+            // Always destroy native handle
+            plctag.plc_tag_destroy(Handle);
             _disposed = true;
         }
     }
