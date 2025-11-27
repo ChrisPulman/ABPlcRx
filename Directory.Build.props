@@ -13,6 +13,7 @@
     <NoWarn>CS1591;IDE0190;IDE1006</NoWarn>
     <Nullable>enable</Nullable>
     <PackageIcon>logo.png</PackageIcon>
+    <PackageReadmeFile>readme.md</PackageReadmeFile>
     <Configurations>Debug;Release</Configurations>
     <PackageReleaseNotes>Compatability with Net 8/ 9/ 10 and netstandard2.0</PackageReleaseNotes>
     <PackageTags>Rockwell;AB;Allen;Bradley;PLC;Micrologix;Controllogix;CompactLogix;PLC-5;rx;reactive;extensions;observable;LINQ;net;netstandard</PackageTags>
