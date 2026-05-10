@@ -5,6 +5,9 @@ using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+#if NET8_0_OR_GREATER
+using ReactiveUI.Extensions.Async;
+#endif
 
 namespace ABPlcRx;
 
@@ -76,6 +79,14 @@ public class ABPlcRx : IABPlcRx
     /// </summary>
     /// <value>The data read.</value>
     public IObservable<IPlcTag?> ObserveAll => _plc.Tags.Select(x => x.Changed).Merge().Select(c => c.Tag);
+
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Gets the data read as an async-native observable.
+    /// </summary>
+    /// <value>The async data read stream.</value>
+    public IObservableAsync<IPlcTag?> ObserveAllAsync => ObserveAll.ToObservableAsync();
+#endif
 
     /// <summary>
     /// Gets or sets a value indicating whether [scan enabled].
@@ -180,6 +191,20 @@ public class ABPlcRx : IABPlcRx
             .Publish()
             .RefCount();
 
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Observes the specified variable as an async-native observable.
+    /// </summary>
+    /// <typeparam name="T">The type.</typeparam>
+    /// <param name="variable">The variable.</param>
+    /// <param name="bit">The bit.</param>
+    /// <returns>
+    /// An async observable of T.
+    /// </returns>
+    public IObservableAsync<T?> ObserveAsync<T>(string? variable, int bit = -1) =>
+        Observe<T>(variable, bit).ToObservableAsync();
+#endif
+
     /// <summary>
     /// Observe values for many variables and emit a latest-value dictionary.
     /// </summary>
@@ -213,6 +238,16 @@ public class ABPlcRx : IABPlcRx
             .RefCount();
     }
 
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Observe values for many variables and emit a latest-value dictionary as an async-native observable.
+    /// </summary>
+    /// <param name="variables">One or more variable names to observe.</param>
+    /// <returns>Async observable sequence of dictionary containing the latest values for each variable.</returns>
+    public IObservableAsync<IReadOnlyDictionary<string, object?>> ObserveManyAsync(params string[] variables) =>
+        ObserveMany(variables).ToObservableAsync();
+#endif
+
     /// <summary>
     /// Observe a PLC tag group, emitting the tag whose value changed.
     /// </summary>
@@ -235,6 +270,16 @@ public class ABPlcRx : IABPlcRx
         })
         .Publish()
         .RefCount();
+
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Observe a PLC tag group as an async-native observable.
+    /// </summary>
+    /// <param name="groupName">The group name to observe.</param>
+    /// <returns>Async observable sequence of tags in the group that have changed.</returns>
+    public IObservableAsync<IPlcTag> ObserveGroupAsync(string groupName) =>
+        ObserveGroup(groupName).ToObservableAsync();
+#endif
 
     /// <summary>
     /// Creates an observer that writes values to a PLC variable when OnNext is called.
@@ -262,12 +307,35 @@ public class ABPlcRx : IABPlcRx
     public IObservable<T?> ObserveSampled<T>(string variable, TimeSpan sampleInterval, int bit = -1, IScheduler? scheduler = null)
         => Observe<T>(variable, bit).Sample(sampleInterval, scheduler ?? TaskPoolScheduler.Default).DistinctUntilChanged().Publish().RefCount();
 
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Observe a variable with sampling as an async-native observable.
+    /// </summary>
+    /// <typeparam name="T">The value type.</typeparam>
+    /// <param name="variable">The variable to observe.</param>
+    /// <param name="sampleInterval">The sampling interval.</param>
+    /// <param name="bit">The bit [ONLY use for bool tags].</param>
+    /// <param name="scheduler">Optional scheduler for sampling.</param>
+    /// <returns>Async observable sequence of sampled values.</returns>
+    public IObservableAsync<T?> ObserveSampledAsync<T>(string variable, TimeSpan sampleInterval, int bit = -1, IScheduler? scheduler = null)
+        => ObserveSampled<T>(variable, sampleInterval, bit, scheduler).ToObservableAsync();
+#endif
+
     /// <summary>
     /// Streams only error results across all tags.
     /// </summary>
     /// <returns>Observable sequence of error results.</returns>
     public IObservable<PlcTagResult> ObserveErrors()
         => _plc.Tags.Select(x => x.Changed).Merge().Where(r => PlcTagStatus.IsError(r.StatusCode)).Publish().RefCount();
+
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Streams only error results across all tags as an async-native observable.
+    /// </summary>
+    /// <returns>Async observable sequence of error results.</returns>
+    public IObservableAsync<PlcTagResult> ObserveErrorsAsync() =>
+        ObserveErrors().ToObservableAsync();
+#endif
 
     /// <summary>
     /// Ping the PLC.
@@ -297,6 +365,18 @@ public class ABPlcRx : IABPlcRx
                       .DistinctUntilChanged()
                       .Publish()
                       .RefCount();
+
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Observe ping results on a schedule as an async-native observable.
+    /// </summary>
+    /// <param name="interval">The interval between pings.</param>
+    /// <param name="echo">True echo result to standard output.</param>
+    /// <param name="scheduler">Optional scheduler for the ping cadence.</param>
+    /// <returns>Async observable sequence of ping result states, deduplicated.</returns>
+    public IObservableAsync<bool> ObservePingAsync(TimeSpan interval, bool echo = false, IScheduler? scheduler = null) =>
+        ObservePing(interval, echo, scheduler).ToObservableAsync();
+#endif
 
     /// <summary>
     /// Reads the specified variable.
