@@ -24,17 +24,23 @@ Supported PLC families (via libplctag)
 Core features
 - Create tags and group them for bulk operations
 - Reactive APIs (IObservable) for on‑change updates
+- Async reactive APIs (IObservableAsync) through ReactiveUI.Extensions on .NET 8+
 - Read/write primitives: 8/16/32/64‑bit signed/unsigned, 32/64‑bit float
 - Bit addressing helpers for coil/word bits
 - String and structure support (libplctag style)
 - Bulk read/write across groups
 - Health monitoring (Ping/ObservePing)
+- Source generator attributes for typed PLC stream models
+- TUnit tests running on Microsoft Testing Platform
 
 Getting started
 Installation
 - Install the NuGet package:
   - Package Manager: Install-Package ABPlcRx
   - .NET CLI: dotnet add package ABPlcRx
+- To generate typed stream models, add the source generator package/project as an analyzer:
+  - Package Manager: Install-Package ABPlcRx.SourceGenerators
+  - .NET CLI: dotnet add package ABPlcRx.SourceGenerators
 - ABPlcRx depends on libplctag; the NuGet dependency brings required bindings.
 
 Basic concepts
@@ -88,11 +94,54 @@ glx.Value("Counter", lgx.Value<int>("Counter") + 1);
 
 Reactive API highlights
 - Observe<T>(variable, bit = -1): stream values on change, supports late‑added tags
+- ObserveAsync<T>(variable, bit = -1): async-native stream using ReactiveUI.Extensions.Async on .NET 8+
 - ObserveMany(params string[] variables): latest values as a dictionary
+- ObserveManyAsync(params string[] variables): async-native latest value dictionaries
 - ObserveGroup(groupName): emits tag objects in a group when they change
+- ObserveGroupAsync(groupName): async-native group stream
 - ObserveSampled<T>(variable, sampleInterval, bit, scheduler): sampled stream for rate limiting
+- ObserveSampledAsync<T>(variable, sampleInterval, bit, scheduler): async-native sampled stream
 - ObserveErrors(): only tag operations that returned an error
+- ObserveErrorsAsync(): async-native error stream
 - CreateWriter<T>(variable, bit): returns an IObserver<T> that writes on OnNext
+
+Async observables
+```csharp
+using ReactiveUI.Extensions.Async;
+
+var counter = lgx.ObserveAsync<int>("Counter");
+
+// IObservableAsync<T> can use ReactiveUI.Extensions.Async operators,
+// including Select, Where, Merge, CombineLatest, Retry, Timeout, Publish,
+// ReplayLatest, ToObservable, and ToObservableAsync.
+var activeCounter =
+    counter
+        .Where(value => value > 0)
+        .Select(value => $"Counter={value}");
+```
+
+Source generated stream models
+```csharp
+using ABPlcRx.SourceGeneration;
+
+[PlcModel]
+[PlcTag(typeof(int), "Counter", "MyDINT")]
+[PlcTag(typeof(bool), "LightOn", "B3:3", Bit = 0)]
+public partial class MachineTags
+{
+}
+
+var tags = new MachineTags();
+using var binding = tags.AttachPlcStreams(slc);
+
+tags.CounterObservable.Subscribe(value => Console.WriteLine($"Counter={value}"));
+tags.LightOnObservable.Subscribe(value => Console.WriteLine($"LightOn={value}"));
+
+// On .NET 8+ the generator also emits IObservableAsync<T> streams.
+var asyncLightOn = tags.LightOnObservableAsync;
+```
+
+The generator creates a property for each class-level `PlcTag` attribute, registers tags in `AttachPlcStreams`, keeps the generated property updated from the observable subscription, and exposes both `PropertyNameObservable` and `PropertyNameObservableAsync` on .NET 8+. Boolean bit tags are registered as `short` tags and exposed as `bool` values.
 
 Examples
 Observe multiple variables
@@ -139,14 +188,28 @@ API surface (high level)
 - ABPlcRx (implements IABPlcRx)
   - AddUpdateTagItem<T>(variable, tagName, tagGroup = "Default")
   - Observe<T>(variable, bit = -1)
+  - ObserveAsync<T>(variable, bit = -1) on .NET 8+
   - ObserveMany(params string[] variables)
+  - ObserveManyAsync(params string[] variables) on .NET 8+
   - ObserveGroup(groupName)
+  - ObserveGroupAsync(groupName) on .NET 8+
   - ObserveSampled<T>(variable, sampleInterval, bit = -1, scheduler = null)
+  - ObserveSampledAsync<T>(variable, sampleInterval, bit = -1, scheduler = null) on .NET 8+
   - ObserveErrors()
+  - ObserveErrorsAsync() on .NET 8+
   - CreateWriter<T>(variable, bit = -1)
   - Value<T>(variable, bit = -1) / Value<T>(variable, value, bit = -1)
   - Read()/Read(variable) and Write()/Write(variable)
   - Ping(bool echo = false), PingAsync(...), ObservePing(interval,...)
+  - ObservePingAsync(interval,...) on .NET 8+
+
+Testing
+- Tests are in `src/ABPlcRx.Tests`.
+- The suite uses TUnit with Microsoft Testing Platform; `global.json` sets `"test": { "runner": "Microsoft.Testing.Platform" }`.
+- Run all tests with:
+```bash
+dotnet test src/ABPlcRx.sln
+```
 
 Data types and bit access
 - To treat a single bit as a boolean, create the tag as `short` and use the `bit` parameter (0‑15).
