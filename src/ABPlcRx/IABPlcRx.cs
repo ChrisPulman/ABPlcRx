@@ -6,6 +6,9 @@ using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Threading;
 using System.Threading.Tasks;
+#if NET8_0_OR_GREATER
+using ReactiveUI.Extensions.Async;
+#endif
 
 namespace ABPlcRx;
 
@@ -22,6 +25,16 @@ public interface IABPlcRx : ICancelable
     /// The observe all.
     /// </value>
     IObservable<IPlcTag?> ObserveAll { get; }
+
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Gets the asynchronous observe all stream.
+    /// </summary>
+    /// <value>
+    /// The asynchronous observe all stream.
+    /// </value>
+    IObservableAsync<IPlcTag?> ObserveAllAsync { get; }
+#endif
 
     /// <summary>
     /// Gets or sets a value indicating whether [scan enabled].
@@ -80,6 +93,19 @@ public interface IABPlcRx : ICancelable
     /// </returns>
     IObservable<T?> Observe<T>(string? variable, int bit = -1);
 
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Observes the specified variable using an async-native observable.
+    /// </summary>
+    /// <typeparam name="T">The PLC type.</typeparam>
+    /// <param name="variable">The variable.</param>
+    /// <param name="bit">The bit.</param>
+    /// <returns>
+    /// An async observable sequence of values of type T.
+    /// </returns>
+    IObservableAsync<T?> ObserveAsync<T>(string? variable, int bit = -1);
+#endif
+
     /// <summary>
     /// Observe values for many variables and emit a latest-value dictionary.
     /// </summary>
@@ -87,12 +113,30 @@ public interface IABPlcRx : ICancelable
     /// <returns>Observable sequence of dictionary containing the latest values for each variable.</returns>
     IObservable<IReadOnlyDictionary<string, object?>> ObserveMany(params string[] variables);
 
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Observe values for many variables using an async-native observable.
+    /// </summary>
+    /// <param name="variables">One or more variable names to observe.</param>
+    /// <returns>Async observable sequence of dictionary containing the latest values for each variable.</returns>
+    IObservableAsync<IReadOnlyDictionary<string, object?>> ObserveManyAsync(params string[] variables);
+#endif
+
     /// <summary>
     /// Observe a PLC tag group, emitting the tag whose value changed.
     /// </summary>
     /// <param name="groupName">The group name to observe.</param>
     /// <returns>Observable sequence of tags in the group that have changed.</returns>
     IObservable<IPlcTag> ObserveGroup(string groupName);
+
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Observe a PLC tag group using an async-native observable.
+    /// </summary>
+    /// <param name="groupName">The group name to observe.</param>
+    /// <returns>Async observable sequence of tags in the group that have changed.</returns>
+    IObservableAsync<IPlcTag> ObserveGroupAsync(string groupName);
+#endif
 
     /// <summary>
     /// Creates an observer that writes values to a PLC variable when OnNext is called.
@@ -114,11 +158,32 @@ public interface IABPlcRx : ICancelable
     /// <returns>Observable sequence of sampled values.</returns>
     IObservable<T?> ObserveSampled<T>(string variable, TimeSpan sampleInterval, int bit = -1, IScheduler? scheduler = null);
 
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Observe a variable with sampling using an async-native observable.
+    /// </summary>
+    /// <typeparam name="T">The value type.</typeparam>
+    /// <param name="variable">The variable to observe.</param>
+    /// <param name="sampleInterval">The sampling interval.</param>
+    /// <param name="bit">The bit [ONLY use for bool tags].</param>
+    /// <param name="scheduler">Optional scheduler for sampling.</param>
+    /// <returns>Async observable sequence of sampled values.</returns>
+    IObservableAsync<T?> ObserveSampledAsync<T>(string variable, TimeSpan sampleInterval, int bit = -1, IScheduler? scheduler = null);
+#endif
+
     /// <summary>
     /// Streams only error results across all tags.
     /// </summary>
     /// <returns>Observable sequence of error results.</returns>
     IObservable<PlcTagResult> ObserveErrors();
+
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Streams only error results across all tags using an async-native observable.
+    /// </summary>
+    /// <returns>Async observable sequence of error results.</returns>
+    IObservableAsync<PlcTagResult> ObserveErrorsAsync();
+#endif
 
     /// <summary>
     /// Values the specified variable.
@@ -189,4 +254,15 @@ public interface IABPlcRx : ICancelable
     /// <param name="scheduler">Optional scheduler for the ping cadence.</param>
     /// <returns>Observable sequence of ping result states, deduplicated.</returns>
     IObservable<bool> ObservePing(TimeSpan interval, bool echo = false, IScheduler? scheduler = null);
+
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Observe ping results on a schedule using an async-native observable.
+    /// </summary>
+    /// <param name="interval">The interval between pings.</param>
+    /// <param name="echo">True echo result to standard output.</param>
+    /// <param name="scheduler">Optional scheduler for the ping cadence.</param>
+    /// <returns>Async observable sequence of ping result states, deduplicated.</returns>
+    IObservableAsync<bool> ObservePingAsync(TimeSpan interval, bool echo = false, IScheduler? scheduler = null);
+#endif
 }
