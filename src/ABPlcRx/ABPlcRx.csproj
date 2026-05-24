@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="!$(TargetFramework.StartsWith('netstandard2'))">
-    <PackageReference Include="ReactiveUI.Extensions" Version="2.3.1" />
+    <PackageReference Include="ReactiveUI.Extensions" Version="4.0.0" />
   </ItemGroup>
   
 </Project>
