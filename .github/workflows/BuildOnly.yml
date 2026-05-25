@@ -53,5 +53,10 @@ jobs:
             .nuke/temp
             ~/.nuget/packages
           key: ${{ runner.os }}-${{ hashFiles('**/global.json', '**/*.csproj', '**/Directory.Packages.props') }}
+      - name: 'Clean build artifacts'
+        run: |
+          Remove-Item -Recurse -Force ".\src\*\bin" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force ".\src\*\obj" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force ".\build\obj" -ErrorAction SilentlyContinue
       - name: 'Run: Compile'
         run: ./build.cmd Compile
