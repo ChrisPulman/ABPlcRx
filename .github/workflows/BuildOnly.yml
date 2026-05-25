@@ -53,10 +53,13 @@ jobs:
             .nuke/temp
             ~/.nuget/packages
           key: ${{ runner.os }}-${{ hashFiles('**/global.json', '**/*.csproj', '**/Directory.Packages.props') }}
-      - name: 'Clean build artifacts'
+      - name: 'Clean build artifacts and kill compiler processes'
         run: |
           Remove-Item -Recurse -Force ".\src\*\bin" -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force ".\src\*\obj" -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force ".\build\obj" -ErrorAction SilentlyContinue
+          Stop-Process -Name "VBCSCompiler" -Force -ErrorAction SilentlyContinue
+          Stop-Process -Name "dotnet" -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 2
       - name: 'Run: Compile'
         run: ./build.cmd Compile
