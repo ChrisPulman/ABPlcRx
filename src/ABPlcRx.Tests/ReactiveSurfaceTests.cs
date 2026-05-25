@@ -28,7 +28,7 @@ public sealed class ReactiveSurfaceTests
         Throws<ArgumentNullException>(() => plc.AddUpdateTagItem<int>(string.Empty, "N7:0", "Default"));
         Throws<ArgumentNullException>(() => plc.AddUpdateTagItem<int>("Counter", string.Empty, "Default"));
         Throws<ArgumentNullException>(() => plc.AddUpdateTagItem<int>("Counter", "N7:0", string.Empty));
-        Throws<Exception>(() => plc.AddUpdateTagItem<bool>("Flag", "B3:0", "Default"));
+        DoesNotThrow(() => plc.AddUpdateTagItem<bool>("Flag", "BoolTest", "Default"));
         await Task.CompletedTask;
     }
 
@@ -38,8 +38,13 @@ public sealed class ReactiveSurfaceTests
         using var plc = new global::ABPlcRx.ABPlcRx(PlcType.SLC, "127.0.0.1", TimeSpan.FromMilliseconds(10));
 
         IsAssignableTo<IObservableAsync<IPlcTag?>>(plc.ObserveAllAsync);
+        IsAssignableTo<IObservableAsync<int>>(plc.ObserveAsync<int>("Counter"));
         IsAssignableTo<IObservableAsync<IReadOnlyDictionary<string, object?>>>(plc.ObserveManyAsync());
+        IsAssignableTo<IObservableAsync<IPlcTag>>(plc.ObserveGroupAsync("Default"));
+        IsAssignableTo<IObservableAsync<int>>(plc.ObserveSampledAsync<int>("Counter", TimeSpan.FromMilliseconds(100)));
         IsAssignableTo<IObservableAsync<PlcTagResult>>(plc.ObserveErrorsAsync());
+        IsAssignableTo<IObservableAsync<bool>>(plc.ObservePingAsync(TimeSpan.FromSeconds(1)));
+        IsAssignableTo<IObservable<int>>(ObservableBridgeExtensions.ToObservable(plc.ObserveAsync<int>("Counter")));
         await Task.CompletedTask;
     }
 
@@ -64,6 +69,18 @@ public sealed class ReactiveSurfaceTests
         }
 
         throw new InvalidOperationException($"Expected exception of type {typeof(TException).Name}.");
+    }
+
+    private static void DoesNotThrow(Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Expected no exception.", ex);
+        }
     }
 
     private static void IsAssignableTo<T>(object value)

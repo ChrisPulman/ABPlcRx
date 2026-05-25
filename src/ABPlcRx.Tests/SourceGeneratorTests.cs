@@ -23,6 +23,7 @@ public sealed class SourceGeneratorTests
             [PlcModel]
             [PlcTag(typeof(int), "Counter", "MyDINT")]
             [PlcTag(typeof(bool), "LightOn", "B3:3", Bit = 0)]
+            [PlcTag(typeof(bool), "Ready", "MachineReady")]
             public partial class MachineTags
             {
             }
@@ -48,7 +49,11 @@ public sealed class SourceGeneratorTests
         Contains("CounterObservable", generatedSource);
         Contains("LightOnObservable", generatedSource);
         Contains("LightOnObservableAsync", generatedSource);
+        Contains("ReadyObservable", generatedSource);
+        Contains("ReadyObservableAsync", generatedSource);
         Contains("controller.AddUpdateTagItem<short>(@\"LightOn\", @\"B3:3\", @\"Default\")", generatedSource);
+        Contains("controller.AddUpdateTagItem<bool>(@\"Ready\", @\"MachineReady\", @\"Default\")", generatedSource);
+        Contains("controller.Observe<bool>(@\"Ready\", -1)", generatedSource);
 
         await Task.CompletedTask;
     }

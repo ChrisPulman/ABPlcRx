@@ -21,5 +21,27 @@
   <ItemGroup Condition="!$(TargetFramework.StartsWith('netstandard2'))">
     <PackageReference Include="ReactiveUI.Extensions" Version="4.0.0" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ABPlcRx.SourceGenerators\ABPlcRx.SourceGenerators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all"
+                      SetTargetFramework="TargetFramework=netstandard2.0" />
+  </ItemGroup>
+
+  <Target Name="PackSourceGeneratorAnalyzer" BeforeTargets="_GetPackageFiles">
+    <PropertyGroup>
+      <_ABPlcRxSourceGeneratorPath>$(MSBuildProjectDirectory)\..\ABPlcRx.SourceGenerators\bin\$(Configuration)\netstandard2.0\ABPlcRx.SourceGenerators.dll</_ABPlcRxSourceGeneratorPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <None Include="$(_ABPlcRxSourceGeneratorPath)"
+            Pack="true"
+            PackagePath="analyzers/dotnet/cs"
+            Visible="false"
+            Condition="Exists('$(_ABPlcRxSourceGeneratorPath)')" />
+    </ItemGroup>
+  </Target>
   
 </Project>

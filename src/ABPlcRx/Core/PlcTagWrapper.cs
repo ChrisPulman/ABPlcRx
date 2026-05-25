@@ -44,6 +44,13 @@ public class PlcTagWrapper
     public string GetBitsString() => new([.. GetBits().Cast<bool>().Select(a => a ? '1' : '0')]);
 
     /// <summary>
+    /// Get local value Bool.
+    /// </summary>
+    /// <param name="offset">The offset.</param>
+    /// <returns>A Value.</returns>
+    public bool GetBool(int offset = 0) => GetUInt8(offset) != 0;
+
+    /// <summary>
     /// Get local value Float32.
     /// </summary>
     /// <param name="offset">The offset.</param>
@@ -194,6 +201,13 @@ public class PlcTagWrapper
         bits.CopyTo(data, 0);
         Set(data[0]);
     }
+
+    /// <summary>
+    /// Set local value Bool.
+    /// </summary>
+    /// <param name="value">if set to <c>true</c> [value].</param>
+    /// <param name="offset">The offset.</param>
+    public void SetBool(bool value, int offset = 0) => SetUInt8(value ? (byte)1 : (byte)0, offset);
 
     /// <summary>
     /// Set local value Float32.
@@ -374,6 +388,10 @@ public class PlcTagWrapper
         {
             return GetUInt8(offset);
         }
+        else if (type == typeof(bool))
+        {
+            return GetBool(offset);
+        }
         else if (type == typeof(float))
         {
             return GetFloat32(offset);
@@ -450,6 +468,10 @@ public class PlcTagWrapper
         {
             SetUInt8((byte)value, offset);
         }
+        else if (type == typeof(bool))
+        {
+            SetBool((bool)value, offset);
+        }
         else if (type == typeof(float))
         {
             SetFloat32((float)value, offset);
@@ -474,6 +496,7 @@ public class PlcTagWrapper
 
     private object? GetNumericValue(int offset = 0) => Type.GetTypeCode(_tag.TypeValue) switch
     {
+        TypeCode.Boolean => GetBool(offset),
         TypeCode.Byte => GetUInt8(offset),
         TypeCode.SByte => GetInt8(offset),
         TypeCode.UInt16 => GetUInt16(offset),

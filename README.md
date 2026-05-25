@@ -38,9 +38,7 @@ Installation
 - Install the NuGet package:
   - Package Manager: Install-Package ABPlcRx
   - .NET CLI: dotnet add package ABPlcRx
-- To generate typed stream models, add the source generator package/project as an analyzer:
-  - Package Manager: Install-Package ABPlcRx.SourceGenerators
-  - .NET CLI: dotnet add package ABPlcRx.SourceGenerators
+- The ABPlcRx package includes its source generator analyzer; no separate generator package is required for normal NuGet consumption.
 - ABPlcRx depends on libplctag; the NuGet dependency brings required bindings.
 
 Basic concepts
@@ -86,10 +84,17 @@ var lgx = new ABPlcRx(PlcType.LGX, "192.168.1.60", TimeSpan.FromMilliseconds(200
 lgx.AddUpdateTagItem<int>("Counter", "MyDINT", "Default");
 
 // Observe numeric values
-glx.Observe<int>("Counter").Subscribe(v => Console.WriteLine($"Counter={v}"));
+lgx.Observe<int>("Counter").Subscribe(v => Console.WriteLine($"Counter={v}"));
 
 // Increment and write
-glx.Value("Counter", lgx.Value<int>("Counter") + 1);
+lgx.Value("Counter", lgx.Value<int>("Counter") + 1);
+
+// Standard Logix BOOL tag named MachineReady
+lgx.AddUpdateTagItem<bool>("Ready", "MachineReady", "Default");
+lgx.Observe<bool>("Ready").Subscribe(v => Console.WriteLine($"Ready={v}"));
+
+var ready = !lgx.Value<bool>("Ready");
+lgx.Value("Ready", ready);
 ```
 
 Reactive API highlights
@@ -141,7 +146,7 @@ tags.LightOnObservable.Subscribe(value => Console.WriteLine($"LightOn={value}"))
 var asyncLightOn = tags.LightOnObservableAsync;
 ```
 
-The generator creates a property for each class-level `PlcTag` attribute, registers tags in `AttachPlcStreams`, keeps the generated property updated from the observable subscription, and exposes both `PropertyNameObservable` and `PropertyNameObservableAsync` on .NET 8+. Boolean bit tags are registered as `short` tags and exposed as `bool` values.
+The generator creates a property for each class-level `PlcTag` attribute, registers tags in `AttachPlcStreams`, keeps the generated property updated from the observable subscription, and exposes both `PropertyNameObservable` and `PropertyNameObservableAsync` on .NET 8+. Boolean tags without a `Bit` value are registered as native `bool` tags. Boolean bit tags with `Bit` set are registered as `short` tags and exposed as `bool` values.
 
 Examples
 Observe multiple variables
@@ -212,7 +217,8 @@ dotnet test src/ABPlcRx.sln
 ```
 
 Data types and bit access
-- To treat a single bit as a boolean, create the tag as `short` and use the `bit` parameter (0‑15).
+- Logix/CompactLogix/Micro800 standard `BOOL` tags can be created directly with `AddUpdateTagItem<bool>("Ready", "MachineReady")` and read or written with `Value<bool>("Ready")`.
+- To treat a single bit in an SLC/PLC word as a boolean, create the tag as `short` and use the `bit` parameter (0‑15).
 - For numeric tags use C# primitive types: sbyte/byte/short/ushort/int/uint/long/ulong/float/double.
 - Strings and structure types are supported where the PLC and libplctag support them.
 

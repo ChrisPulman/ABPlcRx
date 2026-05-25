@@ -28,6 +28,15 @@ public sealed class CoreBehaviorTests
     }
 
     [Test]
+    public async Task CreateObjectCreatesBoolDefault()
+    {
+        var value = TagHelper.CreateObject<bool>(1);
+
+        False(value, "The generated default BOOL value should be false.");
+        await Task.CompletedTask;
+    }
+
+    [Test]
     public async Task BitsRoundTripKnownValues()
     {
         foreach (var value in new[] { 0, 1, 2, 255, -1 })

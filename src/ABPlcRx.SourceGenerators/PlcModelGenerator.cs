@@ -110,7 +110,7 @@ public sealed class PlcModelGenerator : ISourceGenerator
             settings.Group,
             GetObserveType(valueType),
             GetObserveType(valueType),
-            IsBoolean(valueType) ? "short" : GetObserveType(valueType),
+            GetRegisterType(valueType, settings.Bit),
             settings.Bit,
             settings.RegisterTag,
             generateProperty: true,
@@ -137,7 +137,7 @@ public sealed class PlcModelGenerator : ISourceGenerator
             settings.Group,
             GetObserveType(valueType),
             property.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
-            IsBoolean(valueType) ? "short" : GetObserveType(valueType),
+            GetRegisterType(valueType, settings.Bit),
             settings.Bit,
             settings.RegisterTag,
             generateProperty: false,
@@ -330,6 +330,9 @@ public sealed class PlcModelGenerator : ISourceGenerator
 
     private static bool IsBoolean(ITypeSymbol type) =>
         (GetNullableUnderlyingType(type) ?? type).SpecialType == SpecialType.System_Boolean;
+
+    private static string GetRegisterType(ITypeSymbol type, int bit) =>
+        IsBoolean(type) && bit >= 0 ? "short" : GetObserveType(type);
 
     private static string GetObserveType(ITypeSymbol type) =>
         (GetNullableUnderlyingType(type) ?? type).ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);

@@ -71,6 +71,7 @@ internal static class DataLength
     /// </value>
     public static IReadOnlyDictionary<Type, int> NativeTypes { get; } = new Dictionary<Type, int>
     {
+        { typeof(bool), UINT8 },
         { typeof(long), INT64 },
         { typeof(ulong), UINT64 },
         { typeof(int), INT32 },

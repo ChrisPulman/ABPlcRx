@@ -58,7 +58,6 @@ public interface IABPlcRx : ICancelable
     /// <typeparam name="T">The tag type.</typeparam>
     /// <param name="tagName">Name of the PLC tag.</param>
     /// <exception cref="System.ArgumentNullException">tagName.</exception>
-    /// <exception cref="System.Exception">Please use type of short, then use bool for other operations and set the bit number.</exception>
     void AddUpdateTagItem<T>(string tagName);
 
     /// <summary>
@@ -68,7 +67,6 @@ public interface IABPlcRx : ICancelable
     /// <param name="variable">The variable, this can be any non null name you wish to use.</param>
     /// <param name="tagName">Name of the plc tag.</param>
     /// <exception cref="System.ArgumentNullException">tagName.</exception>
-    /// <exception cref="System.Exception">Please use type of short, then use bool for other operations and set the bit number.</exception>
     void AddUpdateTagItem<T>(string variable, string tagName);
 
     /// <summary>
@@ -79,7 +77,6 @@ public interface IABPlcRx : ICancelable
     /// <param name="tagName">Name of the plc tag.</param>
     /// <param name="tagGroup">The tag group.</param>
     /// <exception cref="System.ArgumentNullException">tagName.</exception>
-    /// <exception cref="System.Exception">Please use type of short, then use bool for other operations and set the bit number.</exception>
     void AddUpdateTagItem<T>(string variable, string tagName, string tagGroup);
 
     /// <summary>

@@ -132,7 +132,6 @@ public class ABPlcRx : IABPlcRx
     /// <param name="tagName">Name of the tag.</param>
     /// <param name="tagGroup">The tag group.</param>
     /// <exception cref="System.ArgumentNullException">tagName.</exception>
-    /// <exception cref="System.Exception">Please use type of short, then use bool for other operations and set the bit number.</exception>
     public void AddUpdateTagItem<T>(string variable, string tagName, string tagGroup)
     {
         if (string.IsNullOrWhiteSpace(variable))
@@ -148,11 +147,6 @@ public class ABPlcRx : IABPlcRx
         if (string.IsNullOrWhiteSpace(tagGroup))
         {
             throw new ArgumentNullException(nameof(tagGroup));
-        }
-
-        if (typeof(T).Equals(typeof(bool)))
-        {
-            throw new Exception("Please use type of short, then use bool for other operations and set the bit number.");
         }
 
         _plc.AddTagToGroup<T>(variable, tagName!, _scanInterval, tagGroup);
@@ -425,13 +419,9 @@ public class ABPlcRx : IABPlcRx
 
         if (typeof(T).Equals(typeof(bool)))
         {
-            if (bit == -1)
-            {
-                throw new ArgumentOutOfRangeException(nameof(bit), "You must set the bit value for bool types.");
-            }
-
-            object objValue = value!;
-            tag!.Value = ((short)tag!.Value!).SetBit(bit, (bool)objValue!);
+            tag.Value = tag.TypeValue == typeof(bool)
+                ? value
+                : SetTagBitValue(tag, bit, value);
         }
         else
         {
@@ -473,20 +463,84 @@ public class ABPlcRx : IABPlcRx
     {
         if (typeof(T).Equals(typeof(bool)))
         {
-            if (bit == -1)
-            {
-                throw new ArgumentOutOfRangeException(nameof(bit), "You must set the bit value for bool types.");
-            }
-
             if (tag == null)
             {
                 return default;
             }
 
-            object? boolVal = ((short)tag?.Value!).GetBit(bit);
+            var boolVal = tag.TypeValue == typeof(bool)
+                ? tag.Value
+                : GetTagBitValue(tag, bit);
+
             return (T?)boolVal;
         }
 
         return (T?)tag?.Value;
     }
+
+    private static bool GetTagBitValue(IPlcTag tag, int bit)
+    {
+        ValidateBitIndex(tag.TypeValue, bit);
+        return (GetUnsignedIntegralValue(tag.Value, tag.TypeValue) & (1UL << bit)) != 0;
+    }
+
+    private static object SetTagBitValue<T>(IPlcTag tag, int bit, T? value)
+    {
+        ValidateBitIndex(tag.TypeValue, bit);
+        var rawValue = GetUnsignedIntegralValue(tag.Value, tag.TypeValue);
+        var mask = 1UL << bit;
+        var updated = value is true ? rawValue | mask : rawValue & ~mask;
+        return ConvertUnsignedIntegralValue(updated, tag.TypeValue);
+    }
+
+    private static void ValidateBitIndex(Type tagType, int bit)
+    {
+        var bitWidth = Type.GetTypeCode(tagType) switch
+        {
+            TypeCode.Byte or TypeCode.SByte => 8,
+            TypeCode.UInt16 or TypeCode.Int16 => 16,
+            TypeCode.UInt32 or TypeCode.Int32 => 32,
+            TypeCode.UInt64 or TypeCode.Int64 => 64,
+            _ => throw new ArgumentException("Bit operations require an integral PLC tag type.", nameof(tagType)),
+        };
+
+        if (bit < 0 || bit >= bitWidth)
+        {
+            throw new ArgumentOutOfRangeException(nameof(bit), $"Bit must be between 0 and {bitWidth - 1} for {tagType.Name} tags.");
+        }
+    }
+
+    private static ulong GetUnsignedIntegralValue(object? value, Type tagType)
+    {
+        if (value is null)
+        {
+            return 0;
+        }
+
+        return Type.GetTypeCode(tagType) switch
+        {
+            TypeCode.Byte => (byte)value,
+            TypeCode.SByte => unchecked((ulong)(sbyte)value),
+            TypeCode.UInt16 => (ushort)value,
+            TypeCode.Int16 => unchecked((ulong)(short)value),
+            TypeCode.UInt32 => (uint)value,
+            TypeCode.Int32 => unchecked((ulong)(int)value),
+            TypeCode.UInt64 => (ulong)value,
+            TypeCode.Int64 => unchecked((ulong)(long)value),
+            _ => throw new ArgumentException("Bit operations require an integral PLC tag type.", nameof(tagType)),
+        };
+    }
+
+    private static object ConvertUnsignedIntegralValue(ulong value, Type tagType) => Type.GetTypeCode(tagType) switch
+    {
+        TypeCode.Byte => unchecked((byte)value),
+        TypeCode.SByte => unchecked((sbyte)value),
+        TypeCode.UInt16 => unchecked((ushort)value),
+        TypeCode.Int16 => unchecked((short)value),
+        TypeCode.UInt32 => unchecked((uint)value),
+        TypeCode.Int32 => unchecked((int)value),
+        TypeCode.UInt64 => value,
+        TypeCode.Int64 => unchecked((long)value),
+        _ => throw new ArgumentException("Bit operations require an integral PLC tag type.", nameof(tagType)),
+    };
 }
