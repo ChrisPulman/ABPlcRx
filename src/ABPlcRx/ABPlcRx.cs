@@ -506,7 +506,9 @@ public class ABPlcRx : IABPlcRx
 
         if (bit < 0 || bit >= bitWidth)
         {
-            throw new ArgumentOutOfRangeException(nameof(bit), $"Bit must be between 0 and {bitWidth - 1} for {tagType.Name} tags.");
+            throw new ArgumentOutOfRangeException(
+                nameof(bit),
+                $"Bit must be between 0 and {bitWidth - 1} for {tagType.Name} tags.");
         }
     }
 
