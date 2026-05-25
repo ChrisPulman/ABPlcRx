@@ -60,6 +60,8 @@ partial class Build : NukeBuild
         .Executes(() => DotNetBuild(s => s
                 .SetProjectFile(Solution)
                 .SetConfiguration(Configuration)
+                .SetProperty("BuildInParallel", "false")
+                .SetProperty("UseSharedCompilation", "false")
                 .EnableNoRestore()));
 
     Target Pack => _ => _
