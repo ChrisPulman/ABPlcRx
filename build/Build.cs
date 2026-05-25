@@ -61,6 +61,7 @@ partial class Build : NukeBuild
                 .SetProjectFile(Solution)
                 .SetConfiguration(Configuration)
                 .SetProperty("BuildInParallel", "false")
+                .SetProperty("UseSharedCompilation", "false")
                 .EnableNoRestore()));
 
     Target Pack => _ => _
