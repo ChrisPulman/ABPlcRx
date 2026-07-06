@@ -1,75 +1,77 @@
-﻿// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2022-2026 Chris Pulman. All rights reserved.
+// Chris Pulman licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System.Collections.ObjectModel;
 using System.Net.NetworkInformation;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
+using ReactiveUI.Primitives.Signals;
 
 namespace ABPlcRx;
 
-/// <summary>
-/// Allen Bradley Plc.
-/// </summary>
-internal class ABPlc : IDisposable
+/// <summary>Allen Bradley Plc.</summary>
+internal sealed class ABPlc : IDisposable
 {
+    /// <summary>Tag groups keyed by group name.</summary>
     private readonly Dictionary<string, PlcTagCollection> _tagList = [];
-    private readonly Dictionary<string, IPlcTag> _tagsByVariable = new(StringComparer.Ordinal);
-    private readonly object _syncRoot = new();
-    private readonly Subject<IPlcTag> _tagsAdded = new();
-    private readonly Subject<IPlcTag> _tagsRemoved = new();
 
+    /// <summary>Tags keyed by caller variable name.</summary>
+    private readonly Dictionary<string, IPlcTag> _tagsByVariable = new(StringComparer.Ordinal);
+
+    /// <summary>Synchronizes access to tag state.</summary>
+    private readonly object _syncRoot = new();
+
+    /// <summary>Publishes tags added to this controller.</summary>
+    private readonly Signal<IPlcTag> _tagsAdded = new();
+
+    /// <summary>Publishes tags removed from this controller.</summary>
+    private readonly Signal<IPlcTag> _tagsRemoved = new();
+
+    /// <summary>Cached tag group snapshot.</summary>
     private ReadOnlyCollection<PlcTagCollection>? _cachedTagCollections;
+
+    /// <summary>Reusable ping client.</summary>
     private Ping? _ping;
+
+    /// <summary>Tracks disposal state.</summary>
     private bool _disposed;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ABPlc"/> class.
-    /// </summary>
-    /// <param name="ipAddress">The IP address of the PLC.</param>
+    /// <summary>Initializes a new instance of the <see cref="ABPlc"/> class.</summary>
+    /// <param name="address">The IP address of the PLC.</param>
     /// <param name="plcType">Type of the PLC.</param>
-    public ABPlc(string ipAddress, PlcType plcType)
-        : this(ipAddress, plcType, null)
+    public ABPlc(string address, PlcType plcType)
+        : this(address, plcType, null)
     {
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ABPlc" /> class.
-    /// </summary>
-    /// <param name="ipAddress">The IP address of the PLC.</param>
+    /// <summary>Initializes a new instance of the <see cref="ABPlc" /> class.</summary>
+    /// <param name="address">The IP address of the PLC.</param>
     /// <param name="plcType">Type of the PLC.</param>
     /// <param name="slot">Required for LGX, Optional for PLC/SLC/MLGX IOI path to access the PLC from the gateway.
     /// <para></para>Communication Port Type: 1- Backplane, 2- Control Net/Ethernet, DH+ Channel A, DH+ Channel B, 3- Serial.
     /// <para></para>Slot number where cpu is installed: 0,1..</param>
     /// <exception cref="System.ArgumentException">PortType and Slot must be specified for ControlLogix / CompactLogix processors.</exception>
-    public ABPlc(string ipAddress, PlcType plcType, string? slot)
+    public ABPlc(string address, PlcType plcType, string? slot)
     {
         if (plcType == PlcType.LGX && string.IsNullOrEmpty(slot))
         {
             throw new ArgumentException("plcType and slot must be specified for ControlLogix / CompactLogix processors");
         }
 
-        IPAddress = ipAddress;
+        IPAddress = address;
         Slot = slot;
         PlcType = plcType;
     }
 
-    /// <summary>
-    /// Finalizes an instance of the <see cref="ABPlc"/> class.
-    /// </summary>
+    /// <summary>Finalizes an instance of the <see cref="ABPlc"/> class.</summary>
     ~ABPlc()
     {
         Dispose(false);
     }
 
-    /// <summary>
-    /// Gets or sets a value indicating whether automatic Write when using value.
-    /// </summary>
+    /// <summary>Gets or sets a value indicating whether automatic Write when using value.</summary>
     public bool AutoWriteValue { get; set; }
 
-    /// <summary>
-    /// Gets aB CPU models.
-    /// </summary>
+    /// <summary>Gets aB CPU models.</summary>
     public PlcType PlcType { get; }
 
     /// <summary>
@@ -80,14 +82,10 @@ internal class ABPlc : IDisposable
     /// </summary>
     public int DebugLevel { get; set; }
 
-    /// <summary>
-    /// Gets or sets a value indicating whether raise Exception on failed operation.
-    /// </summary>
+    /// <summary>Gets or sets a value indicating whether raise Exception on failed operation.</summary>
     public bool FailOperationRaiseException { get; set; }
 
-    /// <summary>
-    /// Gets the Tag List.
-    /// </summary>
+    /// <summary>Gets the Tag List.</summary>
     /// <returns>A Value.</returns>
     public IReadOnlyList<PlcTagCollection> TagCollectionList
     {
@@ -100,29 +98,19 @@ internal class ABPlc : IDisposable
         }
     }
 
-    /// <summary>
-    /// Gets observable of tags added to this controller.
-    /// </summary>
-    public IObservable<IPlcTag> TagsAdded => _tagsAdded.AsObservable();
+    /// <summary>Gets observable of tags added to this controller.</summary>
+    public IObservable<IPlcTag> TagsAdded => _tagsAdded;
 
-    /// <summary>
-    /// Gets observable of tags removed from this controller.
-    /// </summary>
-    public IObservable<IPlcTag> TagsRemoved => _tagsRemoved.AsObservable();
+    /// <summary>Gets observable of tags removed from this controller.</summary>
+    public IObservable<IPlcTag> TagsRemoved => _tagsRemoved;
 
-    /// <summary>
-    /// Gets iP address of the gateway for this protocol. Could be the IP address of the PLC you want to access.
-    /// </summary>
+    /// <summary>Gets iP address of the gateway for this protocol. Could be the IP address of the PLC you want to access.</summary>
     public string IPAddress { get; }
 
-    /// <summary>
-    /// Gets required for LGX, Optional for PLC/SLC/MLGX IOI path to access the PLC from the gateway.
-    /// </summary>
+    /// <summary>Gets required for LGX, Optional for PLC/SLC/MLGX IOI path to access the PLC from the gateway.</summary>
     public string? Slot { get; }
 
-    /// <summary>
-    /// Gets all Tags.
-    /// </summary>
+    /// <summary>Gets all Tags.</summary>
     /// <returns>A Value.</returns>
     public IReadOnlyList<IPlcTag> Tags
     {
@@ -139,14 +127,10 @@ internal class ABPlc : IDisposable
         }
     }
 
-    /// <summary>
-    /// Gets or sets communication timeout millisec.
-    /// </summary>
+    /// <summary>Gets or sets communication timeout millisec.</summary>
     public int Timeout { get; set; } = 5000;
 
-    /// <summary>
-    /// Creates new TagList.
-    /// </summary>
+    /// <summary>Creates new TagList.</summary>
     /// <param name="name">The name.</param>
     /// <param name="scanInterval">The scan interval.</param>
     /// <returns>
@@ -164,9 +148,7 @@ internal class ABPlc : IDisposable
         return tags;
     }
 
-    /// <summary>
-    /// Removes a tag group, disposing its resources and cleaning lookups.
-    /// </summary>
+    /// <summary>Removes a tag group, disposing its resources and cleaning lookups.</summary>
     /// <param name="tagGroup">The tag group.</param>
     /// <returns>True if removed.</returns>
     public bool RemoveTagGroup(string tagGroup)
@@ -181,11 +163,11 @@ internal class ABPlc : IDisposable
 
             foreach (var tag in group.Tags.ToArray())
             {
-                _tagsByVariable.Remove(tag.Variable);
+                _ = _tagsByVariable.Remove(tag.Variable);
                 _tagsRemoved.OnNext(tag);
             }
 
-            _tagList.Remove(tagGroup);
+            _ = _tagList.Remove(tagGroup);
             _cachedTagCollections = null;
         }
 
@@ -194,18 +176,14 @@ internal class ABPlc : IDisposable
         return true;
     }
 
-    /// <summary>
-    /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-    /// </summary>
+    /// <summary>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.</summary>
     public void Dispose()
     {
         Dispose(true);
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>
-    /// Ping controller.
-    /// </summary>
+    /// <summary>Ping controller.</summary>
     /// <param name="echo">True echo result to standard output.</param>
     /// <returns>A Value.</returns>
     public bool Ping(bool echo = false)
@@ -228,9 +206,7 @@ internal class ABPlc : IDisposable
         }
     }
 
-    /// <summary>
-    /// Ping controller asynchronously.
-    /// </summary>
+    /// <summary>Ping controller asynchronously.</summary>
     /// <param name="echo">True echo result to standard output.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A Value.</returns>
@@ -245,27 +221,22 @@ internal class ABPlc : IDisposable
 
         cancellationToken.ThrowIfCancellationRequested();
         var reply = await ping.SendPingAsync(IPAddress).ConfigureAwait(false);
-        if (cancellationToken.IsCancellationRequested)
-        {
-            throw new OperationCanceledException(cancellationToken);
-        }
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (echo)
         {
-            Console.Out.WriteLine($"Address: {reply.Address}");
-            Console.Out.WriteLine($"RoundTrip time: {reply.RoundtripTime}");
-            Console.Out.WriteLine($"Time to live: {reply.Options?.Ttl}");
-            Console.Out.WriteLine($"Don't fragment: {reply.Options?.DontFragment}");
-            Console.Out.WriteLine($"Buffer size: {reply.Buffer?.Length}");
-            Console.Out.WriteLine($"Status: {reply.Status}");
+            await WriteLineAsync($"Address: {reply.Address}", cancellationToken).ConfigureAwait(false);
+            await WriteLineAsync($"RoundTrip time: {reply.RoundtripTime}", cancellationToken).ConfigureAwait(false);
+            await WriteLineAsync($"Time to live: {reply.Options?.Ttl}", cancellationToken).ConfigureAwait(false);
+            await WriteLineAsync($"Don't fragment: {reply.Options?.DontFragment}", cancellationToken).ConfigureAwait(false);
+            await WriteLineAsync($"Buffer size: {reply.Buffer?.Length}", cancellationToken).ConfigureAwait(false);
+            await WriteLineAsync($"Status: {reply.Status}", cancellationToken).ConfigureAwait(false);
         }
 
         return reply.Status == IPStatus.Success;
     }
 
-    /// <summary>
-    /// Gets the PLC tag.
-    /// </summary>
+    /// <summary>Gets the PLC tag.</summary>
     /// <param name="variable">The name.</param>
     /// <returns>A Tag.</returns>
     public IPlcTag? GetPlcTag(string variable)
@@ -282,20 +253,19 @@ internal class ABPlc : IDisposable
         return Tags.FirstOrDefault(a => a.Variable == variable);
     }
 
-    /// <summary>
-    /// Tries to get the PLC tag by variable key.
-    /// </summary>
-    public bool TryGetPlcTag(string variable, out IPlcTag tag)
+    /// <summary>Tries to get the PLC tag by variable key.</summary>
+    /// <param name="variable">The variable key.</param>
+    /// <param name="tag">The resolved tag.</param>
+    /// <returns>True when the tag is found; otherwise, false.</returns>
+    public bool TryGetPlcTag(string variable, out IPlcTag? tag)
     {
         lock (_syncRoot)
         {
-            return _tagsByVariable.TryGetValue(variable, out tag!);
+            return _tagsByVariable.TryGetValue(variable, out tag);
         }
     }
 
-    /// <summary>
-    /// Determines whether [has tag group] [the specified tag group].
-    /// </summary>
+    /// <summary>Determines whether [has tag group] [the specified tag group].</summary>
     /// <param name="tagGroup">The tag group.</param>
     /// <returns>
     ///   <c>true</c> if [has tag group] [the specified tag group]; otherwise, <c>false</c>.
@@ -308,9 +278,7 @@ internal class ABPlc : IDisposable
         }
     }
 
-    /// <summary>
-    /// Gets the tag group.
-    /// </summary>
+    /// <summary>Gets the tag group.</summary>
     /// <param name="tagGroup">The tag group.</param>
     /// <returns>A Plc Tag Collection.</returns>
     public PlcTagCollection GetTagGroup(string tagGroup)
@@ -321,9 +289,7 @@ internal class ABPlc : IDisposable
         }
     }
 
-    /// <summary>
-    /// Adds the tag to group.
-    /// </summary>
+    /// <summary>Adds the tag to group.</summary>
     /// <typeparam name="T">The tag type.</typeparam>
     /// <param name="variable">The key.</param>
     /// <param name="tagName">The name.</param>
@@ -331,14 +297,12 @@ internal class ABPlc : IDisposable
     /// <param name="tagGroup">The tag group.</param>
     public void AddTagToGroup<T>(string variable, string tagName, TimeSpan scanInterval, string tagGroup = "Default")
     {
-        PlcTagCollection group;
         IPlcTag tag;
         lock (_syncRoot)
         {
-            if (!_tagList.TryGetValue(tagGroup, out group!))
-            {
-                group = CreateTagList(tagGroup, scanInterval);
-            }
+            var group = _tagList.TryGetValue(tagGroup, out var existingGroup)
+                ? existingGroup
+                : CreateTagList(tagGroup, scanInterval);
 
             tag = group.CreateTagType<T>(variable, tagName);
             _tagsByVariable[variable] = tag; // fast future lookup
@@ -347,9 +311,8 @@ internal class ABPlc : IDisposable
         _tagsAdded.OnNext(tag);
     }
 
-    /// <summary>
-    /// Bulk read across all groups.
-    /// </summary>
+    /// <summary>Bulk read across all groups.</summary>
+    /// <returns>The read results.</returns>
     public IReadOnlyList<PlcTagResult> ReadAll()
     {
         List<PlcTagCollection> groups;
@@ -367,9 +330,8 @@ internal class ABPlc : IDisposable
         return results;
     }
 
-    /// <summary>
-    /// Bulk write across all groups.
-    /// </summary>
+    /// <summary>Bulk write across all groups.</summary>
+    /// <returns>The write results.</returns>
     public IReadOnlyList<PlcTagResult> WriteAll()
     {
         List<PlcTagCollection> groups;
@@ -387,43 +349,57 @@ internal class ABPlc : IDisposable
         return results;
     }
 
-    /// <summary>
-    /// Async bulk read across all groups.
-    /// </summary>
+    /// <summary>Async bulk read across all groups.</summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task producing the read results.</returns>
     public Task<IReadOnlyList<PlcTagResult>> ReadAllAsync(CancellationToken cancellationToken = default) => Task.Run(ReadAll, cancellationToken);
 
-    /// <summary>
-    /// Async bulk write across all groups.
-    /// </summary>
+    /// <summary>Async bulk write across all groups.</summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task producing the write results.</returns>
     public Task<IReadOnlyList<PlcTagResult>> WriteAllAsync(CancellationToken cancellationToken = default) => Task.Run(WriteAll, cancellationToken);
 
-    /// <summary>
-    /// Releases unmanaged and - optionally - managed resources.
-    /// </summary>
-    /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
-    protected virtual void Dispose(bool disposing)
+    /// <summary>Writes a line to standard output with target-specific cancellation support.</summary>
+    /// <param name="value">The value to write.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The write task.</returns>
+    private static Task WriteLineAsync(string value, CancellationToken cancellationToken)
     {
-        if (!_disposed)
+#if NET8_0_OR_GREATER
+        return Console.Out.WriteLineAsync(value.AsMemory(), cancellationToken);
+#else
+        cancellationToken.ThrowIfCancellationRequested();
+        return Console.Out.WriteLineAsync(value);
+#endif
+    }
+
+    /// <summary>Releases unmanaged and - optionally - managed resources.</summary>
+    /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
+    private void Dispose(bool disposing)
+    {
+        if (_disposed)
         {
-            if (disposing)
+            return;
+        }
+
+        if (disposing)
+        {
+            foreach (var group in _tagList.Values.ToArray())
             {
-                foreach (var group in _tagList.Values.ToArray())
-                {
-                    group.Dispose();
-                }
-
-                _tagList.Clear();
-                _tagsByVariable.Clear();
-                _cachedTagCollections = null;
-                _ping?.Dispose();
-
-                _tagsAdded.OnCompleted();
-                _tagsRemoved.OnCompleted();
-                _tagsAdded.Dispose();
-                _tagsRemoved.Dispose();
+                group.Dispose();
             }
 
-            _disposed = true;
+            _tagList.Clear();
+            _tagsByVariable.Clear();
+            _cachedTagCollections = null;
+            _ping?.Dispose();
+
+            _tagsAdded.OnCompleted();
+            _tagsRemoved.OnCompleted();
+            _tagsAdded.Dispose();
+            _tagsRemoved.Dispose();
         }
+
+        _disposed = true;
     }
 }

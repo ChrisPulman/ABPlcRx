@@ -1,29 +1,31 @@
-﻿// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2022-2026 Chris Pulman. All rights reserved.
+// Chris Pulman licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
-using System.Reactive;
-using System.Reactive.Concurrency;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives.Extensions;
+using ReactiveUI.Primitives.Signals;
 #if NET8_0_OR_GREATER
-using ReactiveUI.Extensions.Async;
+using ReactiveUI.Primitives.Async;
 #endif
 
 namespace ABPlcRx;
 
-/// <summary>
-/// RxAB.
-/// </summary>
+/// <summary>Reactive Allen Bradley PLC facade.</summary>
 public class ABPlcRx : IABPlcRx
 {
-    private readonly CompositeDisposable _disposables = [];
-    private readonly ABPlc _plc;
-    private readonly TimeSpan _scanInterval;
-    private bool _scanEnabled;
+    /// <summary>Tracks subscriptions and owned disposable resources.</summary>
+    private readonly MultipleDisposable _disposables = [];
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ABPlcRx" /> class.
-    /// </summary>
+    /// <summary>Backs PLC communication and tag management.</summary>
+    private readonly ABPlc _plc;
+
+    /// <summary>Default polling interval for tag groups.</summary>
+    private readonly TimeSpan _scanInterval;
+
+    /// <summary>Initializes a new instance of the <see cref="ABPlcRx" /> class.</summary>
     /// <param name="plcType">Type of the PLC.</param>
     /// <param name="ip">The ip.</param>
     /// <param name="scanInterval">The scan interval.</param>
@@ -32,9 +34,7 @@ public class ABPlcRx : IABPlcRx
     {
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ABPlcRx" /> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="ABPlcRx" /> class.</summary>
     /// <param name="plcType">Type of the PLC.</param>
     /// <param name="ip">The ip.</param>
     /// <param name="scanInterval">The scan interval.</param>
@@ -43,7 +43,7 @@ public class ABPlcRx : IABPlcRx
     public ABPlcRx(PlcType plcType, string ip, TimeSpan scanInterval, TimeSpan timeOut, string? path = "1,0")
     {
         _scanInterval = scanInterval;
-        _plc = new ABPlc(ip, plcType, path)
+        _plc = new(ip, plcType, path)
         {
             Timeout = (int)timeOut.TotalMilliseconds,
             AutoWriteValue = true,
@@ -57,9 +57,7 @@ public class ABPlcRx : IABPlcRx
         _disposables.Add(sub2);
     }
 
-    /// <summary>
-    /// Gets or sets a value indicating whether [automatic write value].
-    /// </summary>
+    /// <summary>Gets or sets a value indicating whether [automatic write value].</summary>
     /// <value>
     ///   <c>true</c> if [automatic write value]; otherwise, <c>false</c>.
     /// </value>
@@ -69,37 +67,31 @@ public class ABPlcRx : IABPlcRx
         set => _plc.AutoWriteValue = value;
     }
 
-    /// <summary>
-    /// Gets a value indicating whether gets a value that indicates whether the object is disposed.
-    /// </summary>
+    /// <summary>Gets a value indicating whether gets a value that indicates whether the object is disposed.</summary>
     public bool IsDisposed => _disposables.IsDisposed;
 
-    /// <summary>
-    /// Gets the data read.
-    /// </summary>
+    /// <summary>Gets the data read.</summary>
     /// <value>The data read.</value>
-    public IObservable<IPlcTag?> ObserveAll => _plc.Tags.Select(x => x.Changed).Merge().Select(c => c.Tag);
+    public IObservable<IPlcTag?> ObserveAll => MergeTagChanges(_plc.Tags).Select(c => c.Tag);
 
 #if NET8_0_OR_GREATER
-    /// <summary>
-    /// Gets the data read as an async-native observable.
-    /// </summary>
+    /// <summary>Gets the data read as an async-native observable.</summary>
     /// <value>The async data read stream.</value>
-    public IObservableAsync<IPlcTag?> ObserveAllAsync => ObserveAll.ToObservableAsync();
+    public IObservableAsync<IPlcTag?> ObserveAllAsyncObservable =>
+        ObservableAsyncBridgeExtensions.ToAsyncObservable(ObserveAll);
 #endif
 
-    /// <summary>
-    /// Gets or sets a value indicating whether [scan enabled].
-    /// </summary>
+    /// <summary>Gets or sets a value indicating whether [scan enabled].</summary>
     /// <value>
     ///   <c>true</c> if [scan enabled]; otherwise, <c>false</c>.
     /// </value>
     public bool ScanEnabled
     {
-        get => _scanEnabled;
+        get;
+
         set
         {
-            _scanEnabled = value;
+            field = value;
             foreach (var list in _plc.TagCollectionList)
             {
                 list.ScanEnabled = value;
@@ -107,54 +99,39 @@ public class ABPlcRx : IABPlcRx
         }
     }
 
-    /// <summary>
-    /// Adds the update tag item.
-    /// </summary>
+    /// <summary>Adds the update tag item.</summary>
     /// <typeparam name="T">The PLC type.</typeparam>
     /// <param name="tagName">Name of the tag.</param>
-    public void AddUpdateTagItem<T>(string tagName) =>
-        AddUpdateTagItem<T>(tagName!, tagName, "Default");
+    /// <param name="typeWitness">Optional type witness for callers that infer <typeparamref name="T"/> from a value.</param>
+    public void AddUpdateTagItem<T>(string tagName, T? typeWitness = default) =>
+        AddUpdateTagItem<T>(tagName, tagName, "Default", typeWitness);
 
-    /// <summary>
-    /// Adds the update tag item.
-    /// </summary>
+    /// <summary>Adds the update tag item.</summary>
     /// <typeparam name="T">The PLC type.</typeparam>
     /// <param name="variable">The variable, this can be any non null name you wish to use.</param>
     /// <param name="tagName">Name of the tag.</param>
-    public void AddUpdateTagItem<T>(string variable, string tagName) =>
-        AddUpdateTagItem<T>(variable, tagName, "Default");
+    /// <param name="typeWitness">Optional type witness for callers that infer <typeparamref name="T"/> from a value.</param>
+    public void AddUpdateTagItem<T>(string variable, string tagName, T? typeWitness = default) =>
+        AddUpdateTagItem<T>(variable, tagName, "Default", typeWitness);
 
-    /// <summary>
-    /// Adds the update tag item.
-    /// </summary>
+    /// <summary>Adds the update tag item.</summary>
     /// <typeparam name="T">The tag type.</typeparam>
     /// <param name="variable">The variable, this can be any non null name you wish to use.</param>
     /// <param name="tagName">Name of the tag.</param>
     /// <param name="tagGroup">The tag group.</param>
+    /// <param name="typeWitness">Optional type witness for callers that infer <typeparamref name="T"/> from a value.</param>
     /// <exception cref="System.ArgumentNullException">tagName.</exception>
-    public void AddUpdateTagItem<T>(string variable, string tagName, string tagGroup)
+    public void AddUpdateTagItem<T>(string variable, string tagName, string tagGroup, T? typeWitness = default)
     {
-        if (string.IsNullOrWhiteSpace(variable))
-        {
-            throw new ArgumentNullException(nameof(variable));
-        }
+        _ = typeWitness;
+        ArgumentExceptionHelper.ThrowIfNullOrWhiteSpace(variable, nameof(variable));
+        ArgumentExceptionHelper.ThrowIfNullOrWhiteSpace(tagName, nameof(tagName));
+        ArgumentExceptionHelper.ThrowIfNullOrWhiteSpace(tagGroup, nameof(tagGroup));
 
-        if (string.IsNullOrWhiteSpace(tagName))
-        {
-            throw new ArgumentNullException(nameof(tagName));
-        }
-
-        if (string.IsNullOrWhiteSpace(tagGroup))
-        {
-            throw new ArgumentNullException(nameof(tagGroup));
-        }
-
-        _plc.AddTagToGroup<T>(variable, tagName!, _scanInterval, tagGroup);
+        _plc.AddTagToGroup<T>(variable, tagName, _scanInterval, tagGroup);
     }
 
-    /// <summary>
-    /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-    /// </summary>
+    /// <summary>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.</summary>
     public void Dispose()
     {
         // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
@@ -162,9 +139,7 @@ public class ABPlcRx : IABPlcRx
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>
-    /// Observes the specified variable.
-    /// </summary>
+    /// <summary>Observes the specified variable.</summary>
     /// <typeparam name="T">The type.</typeparam>
     /// <param name="variable">The variable.</param>
     /// <param name="bit">The bit.</param>
@@ -173,87 +148,64 @@ public class ABPlcRx : IABPlcRx
     /// </returns>
     public IObservable<T?> Observe<T>(string? variable, int bit = -1) =>
         _plc.TagsAdded
-            .Select(_ => Unit.Default)
-            .StartWith(Unit.Default)
+            .Select(_ => RxVoid.Default)
+            .StartWith(RxVoid.Default)
             .Select(_ => _plc.GetPlcTag(variable!))
-            .Where(t => t != null)
-            .Select(t => t!.Changed.Select(_ => Unit.Default).StartWith(Unit.Default).Select(__ => GetTagValue<T>(bit, t)))
+            .Where(t => t is not null)
+            .Select(t => t!.Changed.Select(_ => RxVoid.Default).StartWith(RxVoid.Default).Select(__ => GetTagValue<T>(bit, t)))
             .Switch()
             .DelaySubscription(_scanInterval)
             .DistinctUntilChanged()
-            .Retry()
+            .OnErrorRetry()
             .Publish()
             .RefCount();
 
 #if NET8_0_OR_GREATER
-    /// <summary>
-    /// Observes the specified variable as an async-native observable.
-    /// </summary>
+    /// <summary>Observes the specified variable as an async-native observable.</summary>
     /// <typeparam name="T">The type.</typeparam>
     /// <param name="variable">The variable.</param>
     /// <param name="bit">The bit.</param>
     /// <returns>
     /// An async observable of T.
     /// </returns>
-    public IObservableAsync<T?> ObserveAsync<T>(string? variable, int bit = -1) =>
-        Observe<T>(variable, bit).ToObservableAsync();
+    public IObservableAsync<T?> ObserveAsyncObservable<T>(string? variable, int bit = -1) =>
+        ObservableAsyncBridgeExtensions.ToAsyncObservable(Observe<T>(variable, bit));
 #endif
 
-    /// <summary>
-    /// Observe values for many variables and emit a latest-value dictionary.
-    /// </summary>
+    /// <summary>Observe values for many variables and emit a latest-value dictionary.</summary>
     /// <param name="variables">One or more variable names to observe.</param>
     /// <returns>Observable sequence of dictionary containing the latest values for each variable.</returns>
     public IObservable<IReadOnlyDictionary<string, object?>> ObserveMany(params string[] variables)
     {
-        if (variables == null || variables.Length == 0)
-        {
-            return Observable.Return((IReadOnlyDictionary<string, object?>)new Dictionary<string, object?>());
-        }
-
-        return _plc.TagsAdded
-            .Select(_ => Unit.Default)
-            .StartWith(Unit.Default)
-            .Select(_ => variables.Select(v => new { Variable = v, Tag = _plc.GetPlcTag(v) }).Where(x => x.Tag != null).ToArray())
-            .Select(tags =>
-            {
-                if (tags.Length == 0)
-                {
-                    return Observable.Return((IReadOnlyDictionary<string, object?>)new Dictionary<string, object?>());
-                }
-
-                var streams = tags.Select(x => x.Tag!.Changed.Select(_ => new KeyValuePair<string, object?>(x.Variable, x.Tag!.Value)));
-                return streams
-                    .CombineLatest()
-                    .Select(list => (IReadOnlyDictionary<string, object?>)list.ToDictionary(kv => kv.Key, kv => kv.Value));
-            })
+        return variables is null || variables.Length == 0
+            ? Signal.Return((IReadOnlyDictionary<string, object?>)new Dictionary<string, object?>())
+            : _plc.TagsAdded
+            .Select(_ => RxVoid.Default)
+            .StartWith(RxVoid.Default)
+            .Select(_ => ObserveManySnapshot(variables))
             .Switch()
             .Publish()
             .RefCount();
     }
 
 #if NET8_0_OR_GREATER
-    /// <summary>
-    /// Observe values for many variables and emit a latest-value dictionary as an async-native observable.
-    /// </summary>
+    /// <summary>Observe values for many variables and emit a latest-value dictionary as an async-native observable.</summary>
     /// <param name="variables">One or more variable names to observe.</param>
     /// <returns>Async observable sequence of dictionary containing the latest values for each variable.</returns>
-    public IObservableAsync<IReadOnlyDictionary<string, object?>> ObserveManyAsync(params string[] variables) =>
-        ObserveMany(variables).ToObservableAsync();
+    public IObservableAsync<IReadOnlyDictionary<string, object?>> ObserveManyAsyncObservable(params string[] variables) =>
+        ObservableAsyncBridgeExtensions.ToAsyncObservable(ObserveMany(variables));
 #endif
 
-    /// <summary>
-    /// Observe a PLC tag group, emitting the tag whose value changed.
-    /// </summary>
+    /// <summary>Observe a PLC tag group, emitting the tag whose value changed.</summary>
     /// <param name="groupName">The group name to observe.</param>
     /// <returns>Observable sequence of tags in the group that have changed.</returns>
     public IObservable<IPlcTag> ObserveGroup(string groupName) =>
-        Observable.Defer(() =>
+        Signal.Lazy(() =>
         {
             var group = _plc.GetTagGroup(groupName);
 
             // existing tags
-            var current = group.Tags.Select(t => t.Changed.Select(_ => t)).Merge();
+            var current = Signal.Merge(group.Tags.Select(t => t.Changed.Select(_ => t)));
 
             // future tags that end up in the same group
             var future = _plc.TagsAdded
@@ -266,130 +218,104 @@ public class ABPlcRx : IABPlcRx
         .RefCount();
 
 #if NET8_0_OR_GREATER
-    /// <summary>
-    /// Observe a PLC tag group as an async-native observable.
-    /// </summary>
+    /// <summary>Observe a PLC tag group as an async-native observable.</summary>
     /// <param name="groupName">The group name to observe.</param>
     /// <returns>Async observable sequence of tags in the group that have changed.</returns>
-    public IObservableAsync<IPlcTag> ObserveGroupAsync(string groupName) =>
-        ObserveGroup(groupName).ToObservableAsync();
+    public IObservableAsync<IPlcTag> ObserveGroupAsyncObservable(string groupName) =>
+        ObservableAsyncBridgeExtensions.ToAsyncObservable(ObserveGroup(groupName));
 #endif
 
-    /// <summary>
-    /// Creates an observer that writes values to a PLC variable when OnNext is called.
-    /// </summary>
+    /// <summary>Creates an observer that writes values to a PLC variable when OnNext is called.</summary>
     /// <typeparam name="T">The value type.</typeparam>
     /// <param name="variable">The variable to write to.</param>
     /// <param name="bit">The bit [ONLY use for bool tags].</param>
     /// <returns>An observer that will write and commit values to the PLC.</returns>
     public IObserver<T> CreateWriter<T>(string variable, int bit = -1) =>
-        Observer.Create<T>(v =>
+        new ActionObserver<T>(v =>
         {
             Value(variable, v, bit);
-            Write(variable);
+            _ = Write(variable);
         });
 
-    /// <summary>
-    /// Observe a variable with sampling, reducing event rate while preserving latest value.
-    /// </summary>
+    /// <summary>Observe a variable with sampling, reducing event rate while preserving latest value.</summary>
     /// <typeparam name="T">The value type.</typeparam>
     /// <param name="variable">The variable to observe.</param>
     /// <param name="sampleInterval">The sampling interval.</param>
     /// <param name="bit">The bit [ONLY use for bool tags].</param>
     /// <param name="scheduler">Optional scheduler for sampling.</param>
     /// <returns>Observable sequence of sampled values.</returns>
-    public IObservable<T?> ObserveSampled<T>(string variable, TimeSpan sampleInterval, int bit = -1, IScheduler? scheduler = null)
-        => Observe<T>(variable, bit).Sample(sampleInterval, scheduler ?? TaskPoolScheduler.Default).DistinctUntilChanged().Publish().RefCount();
+    public IObservable<T?> ObserveSampled<T>(string variable, TimeSpan sampleInterval, int bit = -1, ISequencer? scheduler = null)
+        => Observe<T>(variable, bit).Sample(sampleInterval, scheduler ?? TaskPoolSequencer.Default).DistinctUntilChanged().Publish().RefCount();
 
 #if NET8_0_OR_GREATER
-    /// <summary>
-    /// Observe a variable with sampling as an async-native observable.
-    /// </summary>
+    /// <summary>Observe a variable with sampling as an async-native observable.</summary>
     /// <typeparam name="T">The value type.</typeparam>
     /// <param name="variable">The variable to observe.</param>
     /// <param name="sampleInterval">The sampling interval.</param>
     /// <param name="bit">The bit [ONLY use for bool tags].</param>
     /// <param name="scheduler">Optional scheduler for sampling.</param>
     /// <returns>Async observable sequence of sampled values.</returns>
-    public IObservableAsync<T?> ObserveSampledAsync<T>(string variable, TimeSpan sampleInterval, int bit = -1, IScheduler? scheduler = null)
-        => ObserveSampled<T>(variable, sampleInterval, bit, scheduler).ToObservableAsync();
+    public IObservableAsync<T?> ObserveSampledAsyncObservable<T>(string variable, TimeSpan sampleInterval, int bit = -1, ISequencer? scheduler = null)
+        => ObservableAsyncBridgeExtensions.ToAsyncObservable(ObserveSampled<T>(variable, sampleInterval, bit, scheduler));
 #endif
 
-    /// <summary>
-    /// Streams only error results across all tags.
-    /// </summary>
+    /// <summary>Streams only error results across all tags.</summary>
     /// <returns>Observable sequence of error results.</returns>
     public IObservable<PlcTagResult> ObserveErrors()
-        => _plc.Tags.Select(x => x.Changed).Merge().Where(r => PlcTagStatus.IsError(r.StatusCode)).Publish().RefCount();
+        => MergeTagChanges(_plc.Tags).Where(r => PlcTagStatus.IsError(r.StatusCode)).Publish().RefCount();
 
 #if NET8_0_OR_GREATER
-    /// <summary>
-    /// Streams only error results across all tags as an async-native observable.
-    /// </summary>
+    /// <summary>Streams only error results across all tags as an async-native observable.</summary>
     /// <returns>Async observable sequence of error results.</returns>
-    public IObservableAsync<PlcTagResult> ObserveErrorsAsync() =>
-        ObserveErrors().ToObservableAsync();
+    public IObservableAsync<PlcTagResult> ObserveErrorsAsyncObservable() =>
+        ObservableAsyncBridgeExtensions.ToAsyncObservable(ObserveErrors());
 #endif
 
-    /// <summary>
-    /// Ping the PLC.
-    /// </summary>
+    /// <summary>Ping the PLC.</summary>
     /// <param name="echo">True echo result to standard output.</param>
     /// <returns>True when ping succeeds; otherwise false.</returns>
     public bool Ping(bool echo = false) => _plc.Ping(echo);
 
-    /// <summary>
-    /// Ping the PLC asynchronously.
-    /// </summary>
+    /// <summary>Ping the PLC asynchronously.</summary>
     /// <param name="echo">True echo result to standard output.</param>
     /// <param name="cancellationToken">A token to cancel the ping operation.</param>
     /// <returns>A task producing true when ping succeeds; otherwise false.</returns>
     public Task<bool> PingAsync(bool echo = false, CancellationToken cancellationToken = default) => _plc.PingAsync(echo, cancellationToken);
 
-    /// <summary>
-    /// Observe ping results on a schedule.
-    /// </summary>
+    /// <summary>Observe ping results on a schedule.</summary>
     /// <param name="interval">The interval between pings.</param>
     /// <param name="echo">True echo result to standard output.</param>
     /// <param name="scheduler">Optional scheduler for the ping cadence.</param>
     /// <returns>Observable sequence of ping result states, deduplicated.</returns>
-    public IObservable<bool> ObservePing(TimeSpan interval, bool echo = false, IScheduler? scheduler = null)
-        => Observable.Timer(TimeSpan.Zero, interval, scheduler ?? TaskPoolScheduler.Default)
-                      .SelectMany(_ => Observable.FromAsync(ct => _plc.PingAsync(echo, ct)))
+    public IObservable<bool> ObservePing(TimeSpan interval, bool echo = false, ISequencer? scheduler = null)
+        => Signal.Timer(TimeSpan.Zero, interval, scheduler ?? TaskPoolSequencer.Default)
+                      .SelectMany(_ => Signal.FromAsync(ct => _plc.PingAsync(echo, ct)))
                       .DistinctUntilChanged()
                       .Publish()
                       .RefCount();
 
 #if NET8_0_OR_GREATER
-    /// <summary>
-    /// Observe ping results on a schedule as an async-native observable.
-    /// </summary>
+    /// <summary>Observe ping results on a schedule as an async-native observable.</summary>
     /// <param name="interval">The interval between pings.</param>
     /// <param name="echo">True echo result to standard output.</param>
     /// <param name="scheduler">Optional scheduler for the ping cadence.</param>
     /// <returns>Async observable sequence of ping result states, deduplicated.</returns>
-    public IObservableAsync<bool> ObservePingAsync(TimeSpan interval, bool echo = false, IScheduler? scheduler = null) =>
-        ObservePing(interval, echo, scheduler).ToObservableAsync();
+    public IObservableAsync<bool> ObservePingAsyncObservable(TimeSpan interval, bool echo = false, ISequencer? scheduler = null) =>
+        ObservableAsyncBridgeExtensions.ToAsyncObservable(ObservePing(interval, echo, scheduler));
 #endif
 
-    /// <summary>
-    /// Reads the specified variable.
-    /// </summary>
+    /// <summary>Reads the specified variable.</summary>
     /// <param name="variable">The variable.</param>
     /// <returns>
     /// A PlcTagResult.
     /// </returns>
     public PlcTagResult? Read(string? variable) => _plc.GetPlcTag(variable!)?.Read();
 
-    /// <summary>
-    /// Reads all the Tags in this instance.
-    /// </summary>
+    /// <summary>Reads all the Tags in this instance.</summary>
     /// <returns>A PlcTagResult.</returns>
     public IEnumerable<PlcTagResult> Read() => _plc.ReadAll();
 
-    /// <summary>
-    /// Values the specified variable.
-    /// </summary>
+    /// <summary>Values the specified variable.</summary>
     /// <typeparam name="T">The type.</typeparam>
     /// <param name="variable">The variable.</param>
     /// <param name="bit">The bit [ONLY use for bool tags].</param>
@@ -402,9 +328,7 @@ public class ABPlcRx : IABPlcRx
         return GetTagValue<T>(bit, tag);
     }
 
-    /// <summary>
-    /// Values the specified variable.
-    /// </summary>
+    /// <summary>Values the specified variable.</summary>
     /// <typeparam name="T">The type.</typeparam>
     /// <param name="variable">The variable.</param>
     /// <param name="value">The value.</param>
@@ -412,7 +336,7 @@ public class ABPlcRx : IABPlcRx
     public void Value<T>(string? variable, T? value, int bit = -1)
     {
         var tag = _plc.GetPlcTag(variable!);
-        if (tag == null)
+        if (tag is null)
         {
             return;
         }
@@ -429,61 +353,72 @@ public class ABPlcRx : IABPlcRx
         }
     }
 
-    /// <summary>
-    /// Writes the specified variable.
-    /// </summary>
+    /// <summary>Writes the specified variable.</summary>
     /// <param name="variable">The variable.</param>
     /// <returns>
     /// A PlcTagResult.
     /// </returns>
     public PlcTagResult? Write(string? variable) => _plc.GetPlcTag(variable!)?.Write();
 
-    /// <summary>
-    /// Writes all the tags in this instance.
-    /// </summary>
+    /// <summary>Writes all the tags in this instance.</summary>
     /// <returns>
     /// A PlcTagResult.
     /// </returns>
     public IEnumerable<PlcTagResult> Write() => _plc.WriteAll();
 
-    /// <summary>
-    /// Releases unmanaged and - optionally - managed resources.
-    /// </summary>
+    /// <summary>Releases unmanaged and - optionally - managed resources.</summary>
     /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
     protected virtual void Dispose(bool disposing)
     {
-        if (!_disposables.IsDisposed && disposing)
+        if (_disposables.IsDisposed || !disposing)
         {
-            _plc.Dispose();
-            _disposables.Dispose();
+            return;
         }
+
+        _plc.Dispose();
+        _disposables.Dispose();
     }
 
+    /// <summary>Reads the typed tag value, including optional bit access for integer-backed Boolean values.</summary>
+    /// <typeparam name="T">The requested value type.</typeparam>
+    /// <param name="bit">The bit index for Boolean values backed by integral tags.</param>
+    /// <param name="tag">The PLC tag to read.</param>
+    /// <returns>The converted tag value.</returns>
     private static T? GetTagValue<T>(int bit, IPlcTag? tag)
     {
-        if (typeof(T).Equals(typeof(bool)))
+        if (tag is null)
         {
-            if (tag == null)
-            {
-                return default;
-            }
-
-            var boolVal = tag.TypeValue == typeof(bool)
-                ? tag.Value
-                : GetTagBitValue(tag, bit);
-
-            return (T?)boolVal;
+            return default;
         }
 
-        return (T?)tag?.Value;
+        if (!typeof(T).Equals(typeof(bool)))
+        {
+            return tag.Value is null ? default : (T?)tag.Value;
+        }
+
+        var boolVal = tag.TypeValue == typeof(bool)
+            ? tag.Value
+            : GetTagBitValue(tag, bit);
+
+        return (T?)boolVal;
     }
 
+    /// <summary>Reads a Boolean bit from an integral tag value.</summary>
+    /// <param name="tag">The source tag.</param>
+    /// <param name="bit">The bit index.</param>
+    /// <returns>The bit value.</returns>
     private static bool GetTagBitValue(IPlcTag tag, int bit)
     {
         ValidateBitIndex(tag.TypeValue, bit);
         return (GetUnsignedIntegralValue(tag.Value, tag.TypeValue) & (1UL << bit)) != 0;
     }
 
+    /// <summary>Writes a Boolean bit into an integral tag value.</summary>
+    /// <typeparam name="T">The input value type.</typeparam>
+    /// <param name="tag">The target tag.</param>
+    /// <param name="bit">The bit index.</param>
+    /// <param name="value">The Boolean value.</param>
+    /// <returns>The updated integral value converted back to the tag type.</returns>
     private static object SetTagBitValue<T>(IPlcTag tag, int bit, T? value)
     {
         ValidateBitIndex(tag.TypeValue, bit);
@@ -493,6 +428,9 @@ public class ABPlcRx : IABPlcRx
         return ConvertUnsignedIntegralValue(updated, tag.TypeValue);
     }
 
+    /// <summary>Validates that a bit index is in range for an integral PLC tag type.</summary>
+    /// <param name="tagType">The PLC tag type.</param>
+    /// <param name="bit">The bit index.</param>
     private static void ValidateBitIndex(Type tagType, int bit)
     {
         var bitWidth = Type.GetTypeCode(tagType) switch
@@ -504,35 +442,40 @@ public class ABPlcRx : IABPlcRx
             _ => throw new ArgumentException("Bit operations require an integral PLC tag type.", nameof(tagType)),
         };
 
-        if (bit < 0 || bit >= bitWidth)
+        if (bit >= 0 && bit < bitWidth)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(bit),
-                $"Bit must be between 0 and {bitWidth - 1} for {tagType.Name} tags.");
+            return;
         }
+
+        throw new ArgumentOutOfRangeException(
+            nameof(bit),
+            $"Bit must be between 0 and {bitWidth - 1} for {tagType.Name} tags.");
     }
 
-    private static ulong GetUnsignedIntegralValue(object? value, Type tagType)
-    {
-        if (value is null)
-        {
-            return 0;
-        }
-
-        return Type.GetTypeCode(tagType) switch
+    /// <summary>Converts an integral tag value to an unsigned representation for bit operations.</summary>
+    /// <param name="value">The source value.</param>
+    /// <param name="tagType">The PLC tag type.</param>
+    /// <returns>The unsigned integral value.</returns>
+    private static ulong GetUnsignedIntegralValue(object? value, Type tagType) =>
+        value is null
+            ? 0
+            : Type.GetTypeCode(tagType) switch
         {
             TypeCode.Byte => (byte)value,
-            TypeCode.SByte => unchecked((ulong)(sbyte)value),
+            TypeCode.SByte => unchecked((byte)(sbyte)value),
             TypeCode.UInt16 => (ushort)value,
-            TypeCode.Int16 => unchecked((ulong)(short)value),
+            TypeCode.Int16 => unchecked((ushort)(short)value),
             TypeCode.UInt32 => (uint)value,
-            TypeCode.Int32 => unchecked((ulong)(int)value),
+            TypeCode.Int32 => unchecked((uint)(int)value),
             TypeCode.UInt64 => (ulong)value,
             TypeCode.Int64 => unchecked((ulong)(long)value),
             _ => throw new ArgumentException("Bit operations require an integral PLC tag type.", nameof(tagType)),
         };
-    }
 
+    /// <summary>Converts an unsigned integral value back to the PLC tag type.</summary>
+    /// <param name="value">The unsigned value.</param>
+    /// <param name="tagType">The PLC tag type.</param>
+    /// <returns>The converted value.</returns>
     private static object ConvertUnsignedIntegralValue(ulong value, Type tagType) => Type.GetTypeCode(tagType) switch
     {
         TypeCode.Byte => unchecked((byte)value),
@@ -545,4 +488,67 @@ public class ABPlcRx : IABPlcRx
         TypeCode.Int64 => unchecked((long)value),
         _ => throw new ArgumentException("Bit operations require an integral PLC tag type.", nameof(tagType)),
     };
+
+    /// <summary>Merges tag change streams for the supplied tag set.</summary>
+    /// <param name="tags">The tags to observe.</param>
+    /// <returns>A merged tag result observable.</returns>
+    private static IObservable<PlcTagResult> MergeTagChanges(IEnumerable<IPlcTag> tags)
+    {
+        var streams = tags.Select(tag => tag.Changed).ToArray();
+        return streams.Length == 0 ? Signal.Silent<PlcTagResult>() : Signal.Merge(streams);
+    }
+
+    /// <summary>Creates a latest-value snapshot for observed tags.</summary>
+    /// <param name="tags">The tags to snapshot.</param>
+    /// <returns>The latest values by variable name.</returns>
+    private static Dictionary<string, object?> CreateSnapshot((string Variable, IPlcTag Tag)[] tags) =>
+        tags.ToDictionary(static item => item.Variable, static item => item.Tag.Value);
+
+    /// <summary>Observes the current snapshot for a set of variables.</summary>
+    /// <param name="variables">The variables to observe.</param>
+    /// <returns>An observable dictionary of current values.</returns>
+    private IObservable<IReadOnlyDictionary<string, object?>> ObserveManySnapshot(string[] variables) =>
+        Signal.Create<IReadOnlyDictionary<string, object?>>(observer =>
+        {
+            var tags = variables
+                .Select(variable => (Variable: variable, Tag: _plc.GetPlcTag(variable)))
+                .Where(static item => item.Tag is not null)
+                .Select(static item => (item.Variable, Tag: item.Tag!))
+                .ToArray();
+
+            if (tags.Length == 0)
+            {
+                observer.OnNext(new Dictionary<string, object?>());
+                return EmptyDisposable.Instance;
+            }
+
+            var subscriptions = new MultipleDisposable();
+            foreach (var item in tags)
+            {
+                subscriptions.Add(item.Tag.Changed.Subscribe(_ => observer.OnNext(CreateSnapshot(tags))));
+            }
+
+            return subscriptions;
+        });
+
+    /// <summary>Observer wrapper around an OnNext action.</summary>
+    /// <typeparam name="T">The observed value type.</typeparam>
+    /// <param name="onNext">The action to run for each value.</param>
+    private sealed class ActionObserver<T>(Action<T> onNext) : IObserver<T>
+    {
+        /// <summary>Handles completion.</summary>
+        public void OnCompleted()
+        {
+        }
+
+        /// <summary>Handles errors.</summary>
+        /// <param name="error">The observed error.</param>
+        public void OnError(Exception error)
+        {
+        }
+
+        /// <summary>Handles the next observed value.</summary>
+        /// <param name="value">The observed value.</param>
+        public void OnNext(T value) => onNext(value);
+    }
 }

@@ -1,14 +1,18 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2022-2026 Chris Pulman. All rights reserved.
+// Chris Pulman licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 namespace ABPlcRx;
 
-/// <summary>
-/// Plc Tag Result.
-/// </summary>
+/// <summary>Result returned by PLC tag operations.</summary>
 [Serializable]
 public class PlcTagResult
 {
+    /// <summary>Initializes a new instance of the <see cref="PlcTagResult"/> class.</summary>
+    /// <param name="tag">The tag that produced the result.</param>
+    /// <param name="timestamp">The operation timestamp.</param>
+    /// <param name="executionTime">The operation execution time in milliseconds.</param>
+    /// <param name="statusCode">The PLC status code.</param>
     internal PlcTagResult(IPlcTag tag, DateTime timestamp, long executionTime, int statusCode)
     {
         Tag = tag;
@@ -17,52 +21,45 @@ public class PlcTagResult
         StatusCode = statusCode;
     }
 
-    /// <summary>
-    /// Gets tag.
-    /// </summary>
+    /// <summary>Gets tag.</summary>
     /// <value>
     /// The tag.
     /// </value>
     public IPlcTag Tag { get; }
 
-    /// <summary>
-    /// Gets timestamp last operation.
-    /// </summary>
+    /// <summary>Gets timestamp last operation.</summary>
     /// <value>
     /// The timestamp.
     /// </value>
     public DateTime Timestamp { get; }
 
-    /// <summary>
-    /// Gets millisecond execution operatorion.
-    /// </summary>
+    /// <summary>Gets millisecond execution operatorion.</summary>
     /// <value>
     /// The execution time.
     /// </value>
     public long ExecutionTime { get; }
 
-    /// <summary>
-    /// Gets the status code <see cref="PlcTagStatus" />
-    /// STATUS_OK will be returned if the operation completed successfully.
-    /// </summary>
+    /// <summary>Gets the status code <see cref="PlcTagStatus" />. STATUS_OK will be returned if the operation completed successfully.</summary>
     /// <value>
     /// The status code.
     /// </value>
     public int StatusCode { get; }
 
-    /// <summary>
-    /// Reduce multiple result to one.
-    /// </summary>
+    /// <summary>Reduce multiple result to one.</summary>
     /// <param name="results">The results.</param>
     /// <returns>
     /// A Value.
     /// </returns>
     public static PlcTagResult Reduce(IEnumerable<PlcTagResult> results)
     {
-        if (results == null)
+#if NET8_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(results);
+#else
+        if (results is null)
         {
             throw new ArgumentNullException(nameof(results));
         }
+#endif
 
         IPlcTag? tag = null;
         var minTs = DateTime.MaxValue;
@@ -94,9 +91,7 @@ public class PlcTagResult
         return new PlcTagResult(tag!, minTs == DateTime.MaxValue ? DateTime.UtcNow : minTs, execSum, worstStatus);
     }
 
-    /// <summary>
-    /// Information result.
-    /// </summary>
+    /// <summary>Information result.</summary>
     /// <returns>A Value.</returns>
     public override string ToString() =>
        $@"Tag Name:      {Tag.TagName}

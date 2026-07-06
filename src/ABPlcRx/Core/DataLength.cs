@@ -1,71 +1,46 @@
-﻿// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2022-2026 Chris Pulman. All rights reserved.
+// Chris Pulman licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 namespace ABPlcRx;
 
-/// <summary>
-/// Tag size definition.
-/// </summary>
+/// <summary>Tag size definition.</summary>
 internal static class DataLength
 {
-    /// <summary>
-    /// The int8.
-    /// </summary>
+    /// <summary>The int8.</summary>
     public const int INT8 = 1;
 
-    /// <summary>
-    /// The uint8.
-    /// </summary>
+    /// <summary>The uint8.</summary>
     public const int UINT8 = INT8;
 
-    /// <summary>
-    /// The int16.
-    /// </summary>
+    /// <summary>The int16.</summary>
     public const int INT16 = 2;
 
-    /// <summary>
-    /// The uint16.
-    /// </summary>
+    /// <summary>The uint16.</summary>
     public const int UINT16 = INT16;
 
-    /// <summary>
-    /// The int32.
-    /// </summary>
+    /// <summary>The int32.</summary>
     public const int INT32 = 4;
 
-    /// <summary>
-    /// The uint32.
-    /// </summary>
+    /// <summary>The uint32.</summary>
     public const int UINT32 = INT32;
 
-    /// <summary>
-    /// The int64.
-    /// </summary>
+    /// <summary>The int64.</summary>
     public const int INT64 = 8;
 
-    /// <summary>
-    /// The uint64.
-    /// </summary>
+    /// <summary>The uint64.</summary>
     public const int UINT64 = INT64;
 
-    /// <summary>
-    /// The float32.
-    /// </summary>
+    /// <summary>The float32.</summary>
     public const int FLOAT32 = 4;
 
-    /// <summary>
-    /// The float64.
-    /// </summary>
+    /// <summary>The float64.</summary>
     public const int FLOAT64 = 8;
 
-    /// <summary>
-    /// The string.
-    /// </summary>
+    /// <summary>The string.</summary>
     public const int STRING = 88;
 
-    /// <summary>
-    /// Gets native type definition.
-    /// </summary>
+    /// <summary>Gets native type definition.</summary>
     /// <value>
     /// The native types.
     /// </value>
@@ -85,14 +60,12 @@ internal static class DataLength
         { typeof(string), STRING },
     };
 
-    /// <summary>
-    /// Get size from object.
-    /// </summary>
+    /// <summary>Get size from object.</summary>
     /// <param name="obj">The object.</param>
     /// <returns>A Value.</returns>
     public static int GetSizeObject(object? obj)
     {
-        if (obj == null)
+        if (obj is null)
         {
             return 0;
         }
@@ -102,7 +75,13 @@ internal static class DataLength
         var type = obj.GetType();
         if (type.IsArray)
         {
-            foreach (var el in TagHelper.GetArray(obj)!)
+            var array = TagHelper.GetArray(obj);
+            if (array is null)
+            {
+                return size;
+            }
+
+            foreach (var el in array)
             {
                 size += GetSizeObject(el);
             }
@@ -116,9 +95,7 @@ internal static class DataLength
         return size;
     }
 
-    /// <summary>
-    /// Check type is native type.
-    /// </summary>
+    /// <summary>Check type is native type.</summary>
     /// <param name="type">The type.</param>
     /// <returns>
     ///   <c>true</c> if [is native type] [the specified type]; otherwise, <c>false</c>.

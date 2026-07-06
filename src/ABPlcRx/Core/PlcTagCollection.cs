@@ -1,89 +1,91 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2022-2026 Chris Pulman. All rights reserved.
+// Chris Pulman licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System.Collections;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace ABPlcRx;
 
-/// <summary>
-/// Plc Tag Collection.
-/// </summary>
-internal class PlcTagCollection : IDisposable
+/// <summary>Plc Tag Collection.</summary>
+internal sealed class PlcTagCollection : IDisposable
 {
+    /// <summary>Synchronizes scan reads.</summary>
     private readonly object _lockScan = new();
-    private readonly Subject<IEnumerable<PlcTagResult>> _readResultSubject = new();
+
+    /// <summary>Publishes grouped read results.</summary>
+    private readonly Signal<IEnumerable<PlcTagResult>> _readResultSubject = new();
+
+    /// <summary>Subscription that drives periodic scans.</summary>
     private readonly IDisposable? _scanDisposable;
+
+    /// <summary>Tags owned by this group.</summary>
     private readonly List<IPlcTag> _tags = [];
+
+    /// <summary>Cached published read result stream.</summary>
     private IObservable<IEnumerable<PlcTagResult>>? _cachedReadResults;
+
+    /// <summary>Tracks disposal state.</summary>
     private bool _disposed;
 
+    /// <summary>Initializes a new instance of the <see cref="PlcTagCollection"/> class.</summary>
+    /// <param name="plc">The owning PLC.</param>
+    /// <param name="scanInterval">The scan interval.</param>
     internal PlcTagCollection(ABPlc plc, TimeSpan scanInterval)
     {
         Plc = plc;
-        _scanDisposable = Observable.Timer(TimeSpan.Zero, scanInterval).Retry().Subscribe(_ =>
-         {
-             if (ScanEnabled)
-             {
-                 lock (_lockScan)
-                 {
-                     _readResultSubject.OnNext(Read());
-                 }
-             }
-         });
+        _scanDisposable = Signal.Timer(TimeSpan.Zero, scanInterval).Subscribe(_ =>
+        {
+            if (!ScanEnabled || _disposed)
+            {
+                return;
+            }
+
+            lock (_lockScan)
+            {
+                if (!ScanEnabled || _disposed)
+                {
+                    return;
+                }
+
+                _readResultSubject.OnNext(Read());
+            }
+        });
     }
 
-    private PlcTagCollection()
-    {
-    }
-
-    /// <summary>
-    /// Finalizes an instance of the <see cref="PlcTagCollection"/> class.
-    /// </summary>
+    /// <summary>Finalizes an instance of the <see cref="PlcTagCollection"/> class.</summary>
     ~PlcTagCollection()
     {
         Dispose(false);
     }
 
-    /// <summary>
-    /// Gets or sets a value indicating whether to read tags.
-    /// </summary>
+    /// <summary>Gets or sets a value indicating whether to read tags.</summary>
     /// <value>
     ///   <c>true</c> if enabled; otherwise, <c>false</c>.
     /// </value>
     public bool ScanEnabled { get; set; } = true;
 
-    /// <summary>
-    /// Gets the read results.
-    /// </summary>
+    /// <summary>Gets the read results.</summary>
     /// <value>
     /// The read results.
     /// </value>
     public IObservable<IEnumerable<PlcTagResult>> ReadResults => _cachedReadResults ??= _readResultSubject.Publish().RefCount();
 
-    /// <summary>
-    /// Gets tags.
-    /// </summary>
+    /// <summary>Gets tags.</summary>
     /// <returns>A Value.</returns>
     public IReadOnlyList<IPlcTag> Tags => _tags.AsReadOnly();
 
-    /// <summary>
-    /// Gets controller.
-    /// </summary>
+    /// <summary>Gets controller.</summary>
     /// <value>
     /// The controller.
     /// </value>
-    internal ABPlc? Plc { get; }
+    internal ABPlc Plc { get; }
 
-    /// <summary>
-    /// Clears all Tags from the group.
-    /// </summary>
+    /// <summary>Clears all Tags from the group.</summary>
     public void ClearTags() => _tags.Clear();
 
-    /// <summary>
-    /// Create Tag array.
-    /// </summary>
+    /// <summary>Create Tag array.</summary>
     /// <typeparam name="TCustomType">Type to create.</typeparam>
     /// <param name="key">The key.</param>
     /// <param name="name">The textual name of the tag to access. The name is anything allowed by the protocol.
@@ -115,9 +117,7 @@ internal class PlcTagCollection : IDisposable
         return CreateTagType<TCustomType>(key, name, DataLength.GetSizeObject(obj[0]), length);
     }
 
-    /// <summary>
-    /// Create Tag custom Type Class.
-    /// </summary>
+    /// <summary>Create Tag custom Type Class.</summary>
     /// <typeparam name="TCustomType">Class to create.</typeparam>
     /// <param name="variable">The variable used by the end user.</param>
     /// <param name="tagName">The textual name of the tag to access. The name is anything allowed by the protocol.
@@ -127,9 +127,7 @@ internal class PlcTagCollection : IDisposable
     /// </returns>
     public IPlcTag<TCustomType> CreateTagType<TCustomType>(string variable, string tagName) => CreateTagType<TCustomType>(variable, tagName, DataLength.GetSizeObject(TagHelper.CreateObject<TCustomType>(1)));
 
-    /// <summary>
-    /// Create Tag using free definition.
-    /// </summary>
+    /// <summary>Create Tag using free definition.</summary>
     /// <typeparam name="TCustomType">The type of the custom type.</typeparam>
     /// <param name="variable">The key.</param>
     /// <param name="tagName">The textual name of the tag to access. The name is anything allowed by the protocol.
@@ -142,82 +140,82 @@ internal class PlcTagCollection : IDisposable
     /// </returns>
     public IPlcTag<TCustomType> CreateTagType<TCustomType>(string variable, string tagName, int size, int length = 1)
     {
-        var tag = new PlcTag<TCustomType>(Plc!, variable, tagName, size, length);
+        var tag = new PlcTag<TCustomType>(Plc, variable, tagName, size, length);
         _tags.Add(tag);
         return tag;
     }
 
-    /// <summary>
-    /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-    /// </summary>
+    /// <summary>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.</summary>
     public void Dispose()
     {
         Dispose(true);
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>
-    /// Performs read of Group of Tags.
-    /// </summary>
+    /// <summary>Performs read of Group of Tags.</summary>
     /// <returns>A Value.</returns>
     public IEnumerable<PlcTagResult> Read() => [.. Tags.Select(a => a.Read())];
 
-    /// <summary>
-    /// Remove tag.
-    /// </summary>
+    /// <summary>Remove tag.</summary>
     /// <param name="tag">The tag.</param>
     /// <exception cref="System.ArgumentException">Tag not exists in this collection.</exception>
     public void RemoveTag(IPlcTag tag)
     {
-        if (tag == null)
-        {
-            throw new ArgumentNullException(nameof(tag));
-        }
+        ArgumentExceptionHelper.ThrowIfNull(tag, nameof(tag));
 
         if (!Tags.Contains(tag))
         {
             throw new ArgumentException("Tag not exists in this collection!");
         }
 
-        _tags.Remove(tag);
+        _ = _tags.Remove(tag);
         CheckDisposeTag(tag);
     }
 
-    /// <summary>
-    /// Performs write of Group of Tags.
-    /// </summary>
+    /// <summary>Performs write of Group of Tags.</summary>
     /// <returns>A Value.</returns>
     public IEnumerable<PlcTagResult> Write() => Tags.Select(a => a.Write());
 
-    /// <summary>
-    /// Releases unmanaged and - optionally - managed resources.
-    /// </summary>
+    /// <summary>Releases unmanaged and - optionally - managed resources.</summary>
     /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
-    protected virtual void Dispose(bool disposing)
+    private void Dispose(bool disposing)
     {
-        if (!_disposed)
+        if (_disposed)
         {
-            if (disposing)
-            {
-                _scanDisposable?.Dispose();
-                _readResultSubject.Dispose();
-                foreach (var tag in _tags.ToArray())
-                {
-                    _tags.Remove(tag);
-                    CheckDisposeTag(tag);
-                }
-            }
+            return;
+        }
 
-            _disposed = true;
+        ScanEnabled = false;
+        _disposed = true;
+
+        if (!disposing)
+        {
+            return;
+        }
+
+        _scanDisposable?.Dispose();
+
+        lock (_lockScan)
+        {
+            _readResultSubject.Dispose();
+            foreach (var tag in _tags.ToArray())
+            {
+                _ = _tags.Remove(tag);
+                CheckDisposeTag(tag);
+            }
         }
     }
 
+    /// <summary>Disposes a tag when it is no longer present in the PLC.</summary>
+    /// <param name="tag">The tag to check.</param>
     private void CheckDisposeTag(IPlcTag tag)
     {
         // if not in Plc dispose
-        if (!Plc!.Tags.Contains(tag))
+        if (Plc.Tags.Contains(tag))
         {
-            tag.Dispose();
+            return;
         }
+
+        tag.Dispose();
     }
 }
