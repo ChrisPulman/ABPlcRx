@@ -1,104 +1,88 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2022-2026 Chris Pulman. All rights reserved.
+// Chris Pulman licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
+using ReactiveUI.Primitives.Signals;
 using libplctag.NativeImport;
 
 namespace ABPlcRx;
 
-/// <summary>
-/// Tag base definition.
-/// </summary>
+/// <summary>Tag base definition.</summary>
 /// <typeparam name="TType">The type of the type.</typeparam>
 /// <seealso cref="System.IDisposable" />
 internal sealed class PlcTag<TType> : IPlcTag<TType>
 {
-    private readonly Subject<PlcTagResult> _changedSubject = new();
+    /// <summary>Publishes tag read changes.</summary>
+    private readonly Signal<PlcTagResult> _changedSubject = new();
+
+    /// <summary>Tracks disposal state.</summary>
     private bool _disposed;
+
+    /// <summary>Backs the local tag value.</summary>
     private TType? _value;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PlcTag{TType}" /> class.
     /// Creates a tag. If the CPU type is LGX, the port type and slot has to be specified.
     /// </summary>
-    /// <param name="abPlc">Controller reference.</param>
+    /// <param name="plc">Controller reference.</param>
     /// <param name="variable">The key.</param>
     /// <param name="tagName">The textual name of the tag to access. The name is anything allowed by the protocol.
     /// E.g. myDataStruct.rotationTimer.ACC, myDINTArray[42] etc.</param>
     /// <param name="size">The size of an element in bytes. The tag is assumed to be composed of elements of the same size.
     /// For structure tags, use the total size of the structure.</param>
     /// <param name="length">elements count: 1- single, n-array.</param>
-    internal PlcTag(ABPlc abPlc, string variable, string tagName, int size, int length = 1)
+    internal PlcTag(ABPlc plc, string variable, string tagName, int size, int length = 1)
     {
-        ABPlc = abPlc;
+        ABPlc = plc;
         Variable = variable;
         TagName = tagName;
         Size = size;
         Length = length;
-        ValueManager = new PlcTagWrapper(this);
+        ValueManager = new(this);
         TypeValue = typeof(TType);
 
-        var url = $"protocol=ab_eip&gateway={abPlc.IPAddress}";
-        if (!string.IsNullOrEmpty(abPlc.Slot))
+        var url = $"protocol=ab_eip&gateway={plc.IPAddress}";
+        if (!string.IsNullOrEmpty(plc.Slot))
         {
-            url += $"&path={abPlc.Slot}";
+            url += $"&path={plc.Slot}";
         }
 
-        url += $"&cpu={abPlc.PlcType}&elem_size={Size}&elem_count={Length}&name={TagName}";
-        if (abPlc.DebugLevel > 0)
+        url += $"&cpu={plc.PlcType}&elem_size={Size}&elem_count={Length}&name={TagName}";
+        if (plc.DebugLevel > 0)
         {
-            url += $"&debug={abPlc.DebugLevel}";
+            url += $"&debug={plc.DebugLevel}";
         }
 
         // create reference
-        Handle = plctag.plc_tag_create(url, abPlc.Timeout);
+        Handle = plctag.plc_tag_create(url, plc.Timeout);
 
         Value = TagHelper.CreateObject<TType>(Length);
     }
 
-#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-
-    private PlcTag()
-#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-    {
-    }
-
-    /// <summary>
-    /// Finalizes an instance of the <see cref="PlcTag{TType}"/> class.
-    /// </summary>
+    /// <summary>Finalizes an instance of the <see cref="PlcTag{TType}"/> class.</summary>
     ~PlcTag()
     {
         Dispose(false);
     }
 
-    /// <summary>
-    /// Gets handle creation Tag.
-    /// </summary>
+    /// <summary>Gets handle creation Tag.</summary>
     public int Handle { get; }
 
-    /// <summary>
-    /// Gets the changed.
-    /// </summary>
+    /// <summary>Gets the changed.</summary>
     /// <value>
     /// The changed.
     /// </value>
-    public IObservable<PlcTagResult> Changed => _changedSubject.AsObservable();
+    public IObservable<PlcTagResult> Changed => _changedSubject;
 
-    /// <summary>
-    /// Gets a value indicating whether indicates whether or not a value must be read from the PLC.
-    /// </summary>
+    /// <summary>Gets a value indicating whether indicates whether or not a value must be read from the PLC.</summary>
     public bool IsRead { get; private set; }
 
-    /// <summary>
-    /// Gets a value indicating whether indicates whether or not a value must be write to the PLC.
-    /// </summary>
+    /// <summary>Gets a value indicating whether indicates whether or not a value must be write to the PLC.</summary>
     public bool IsWrite { get; private set; }
 
-    /// <summary>
-    /// Gets elements length: 1- single, n-array.
-    /// </summary>
+    /// <summary>Gets elements length: 1- single, n-array.</summary>
     public int Length { get; }
 
     /// <summary>
@@ -107,17 +91,13 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
     /// </summary>
     public string TagName { get; }
 
-    /// <summary>
-    /// Gets the key.
-    /// </summary>
+    /// <summary>Gets the key.</summary>
     /// <value>
     /// The key.
     /// </value>
     public string Variable { get; }
 
-    /// <summary>
-    /// Gets or sets a value indicating whether indicate if Tag is in read only.async Write raise exception.
-    /// </summary>
+    /// <summary>Gets or sets a value indicating whether indicate if Tag is in read only.async Write raise exception.</summary>
     public bool ReadOnly { get; set; }
 
     /// <summary>
@@ -126,14 +106,10 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
     /// </summary>
     public int Size { get; }
 
-    /// <summary>
-    /// Gets type value.
-    /// </summary>
+    /// <summary>Gets type value.</summary>
     public Type TypeValue { get; }
 
-    /// <summary>
-    /// Gets or sets value tag.
-    /// </summary>
+    /// <summary>Gets or sets value tag.</summary>
     public TType? Value
     {
         get => (TType?)ValueManager.Get(_value, 0);
@@ -142,16 +118,16 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
         {
             _value = value;
 
-            if (ABPlc.AutoWriteValue)
+            if (!ABPlc.AutoWriteValue)
             {
-                Write();
+                return;
             }
+
+            _ = Write();
         }
     }
 
-    /// <summary>
-    /// Gets or sets the value.
-    /// </summary>
+    /// <summary>Gets or sets the value.</summary>
     /// <value>
     /// The value.
     /// </value>
@@ -161,52 +137,36 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
         set => Value = (TType?)value;
     }
 
-    /// <summary>
-    /// Gets value manager.
-    /// </summary>
+    /// <summary>Gets value manager.</summary>
     public PlcTagWrapper ValueManager { get; }
 
-    /// <summary>
-    /// Gets controller reference.
-    /// </summary>
+    /// <summary>Gets controller reference.</summary>
     internal ABPlc ABPlc { get; }
 
-    /// <summary>
-    /// Abort any outstanding IO to the PLC. <see cref="PlcTagStatus"/>.
-    /// </summary>
+    /// <summary>Abort any outstanding IO to the PLC. <see cref="PlcTagStatus"/>.</summary>
     /// <returns>A Value.</returns>
     public int Abort() => plctag.plc_tag_abort(Handle);
 
-    /// <summary>
-    /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-    /// </summary>
+    /// <summary>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.</summary>
     public void Dispose()
     {
         Dispose(true);
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>
-    /// Get size tag read from PLC.
-    /// </summary>
+    /// <summary>Get size tag read from PLC.</summary>
     /// <returns>A Value.</returns>
     public int GetSize() => plctag.plc_tag_get_size(Handle);
 
-    /// <summary>
-    /// Get status operation. <see cref="PlcTagStatus"/>.
-    /// </summary>
+    /// <summary>Get status operation. <see cref="PlcTagStatus"/>.</summary>
     /// <returns>A Value.</returns>
     public int GetStatus() => plctag.plc_tag_status(Handle);
 
-    /// <summary>
-    /// Lock for multitrading. <see cref="PlcTagStatus"/>.
-    /// </summary>
+    /// <summary>Lock for multitrading. <see cref="PlcTagStatus"/>.</summary>
     /// <returns>A Value.</returns>
     public int Lock() => plctag.plc_tag_lock(Handle);
 
-    /// <summary>
-    /// Performs read of Tag.
-    /// </summary>
+    /// <summary>Performs read of Tag.</summary>
     /// <returns>A Value.</returns>
     public PlcTagResult Read()
     {
@@ -233,15 +193,11 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
         return result;
     }
 
-    /// <summary>
-    /// Unlock for multitrading <see cref="PlcTagStatus"/>.
-    /// </summary>
+    /// <summary>Unlock for multitrading <see cref="PlcTagStatus"/>.</summary>
     /// <returns>A Value.</returns>
     public int Unlock() => plctag.plc_tag_unlock(Handle);
 
-    /// <summary>
-    /// Performs write of Tag.
-    /// </summary>
+    /// <summary>Performs write of Tag.</summary>
     /// <returns>A Value.</returns>
     public PlcTagResult Write()
     {
@@ -269,22 +225,22 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
         return result;
     }
 
-    /// <summary>
-    /// Releases unmanaged and - optionally - managed resources.
-    /// </summary>
+    /// <summary>Releases unmanaged and - optionally - managed resources.</summary>
     /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
     private void Dispose(bool disposing)
     {
-        if (!_disposed)
+        if (_disposed)
         {
-            if (disposing)
-            {
-                _changedSubject.Dispose();
-            }
-
-            // Always destroy native handle
-            plctag.plc_tag_destroy(Handle);
-            _disposed = true;
+            return;
         }
+
+        if (disposing)
+        {
+            _changedSubject.Dispose();
+        }
+
+        // Always destroy native handle
+        _ = plctag.plc_tag_destroy(Handle);
+        _disposed = true;
     }
 }

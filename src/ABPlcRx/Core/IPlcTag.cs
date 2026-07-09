@@ -1,47 +1,34 @@
-﻿// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2022-2026 Chris Pulman. All rights reserved.
+// Chris Pulman licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 namespace ABPlcRx;
 
-/// <summary>
-/// Interface Tag.
-/// </summary>
+/// <summary>Interface Tag.</summary>
 public interface IPlcTag : IDisposable
 {
-    /// <summary>
-    /// Gets the changed.
-    /// </summary>
+    /// <summary>Gets the changed.</summary>
     /// <value>
     /// The changed.
     /// </value>
     IObservable<PlcTagResult> Changed { get; }
 
-    /// <summary>
-    /// Gets handle creation Tag.
-    /// </summary>
+    /// <summary>Gets handle creation Tag.</summary>
     int Handle { get; }
 
-    /// <summary>
-    /// Gets a value indicating whether indicates whether or not a value must be read from the PLC.
-    /// </summary>
+    /// <summary>Gets a value indicating whether indicates whether or not a value must be read from the PLC.</summary>
     bool IsRead { get; }
 
-    /// <summary>
-    /// Gets a value indicating whether indicates whether or not a value must be write to the PLC.
-    /// </summary>
+    /// <summary>Gets a value indicating whether indicates whether or not a value must be write to the PLC.</summary>
     bool IsWrite { get; }
 
-    /// <summary>
-    /// Gets the key.
-    /// </summary>
+    /// <summary>Gets the key.</summary>
     /// <value>
     /// The key.
     /// </value>
     string Variable { get; }
 
-    /// <summary>
-    /// Gets elements length: 1- single, n-array.
-    /// </summary>
+    /// <summary>Gets elements length: 1- single, n-array.</summary>
     int Length { get; }
 
     /// <summary>
@@ -50,9 +37,7 @@ public interface IPlcTag : IDisposable
     /// </summary>
     string TagName { get; }
 
-    /// <summary>
-    /// Gets or sets a value indicating whether indicate if Tag is in read only.async Write raise exception.
-    /// </summary>
+    /// <summary>Gets or sets a value indicating whether indicate if Tag is in read only.async Write raise exception.</summary>
     bool ReadOnly { get; set; }
 
     /// <summary>
@@ -61,60 +46,40 @@ public interface IPlcTag : IDisposable
     /// </summary>
     int Size { get; }
 
-    /// <summary>
-    /// Gets type value.
-    /// </summary>
+    /// <summary>Gets type value.</summary>
     Type TypeValue { get; }
 
-    /// <summary>
-    /// Gets or sets value tag.
-    /// </summary>
+    /// <summary>Gets or sets value tag.</summary>
     object? Value { get; set; }
 
-    /// <summary>
-    /// Gets value manager.
-    /// </summary>
+    /// <summary>Gets value manager.</summary>
     PlcTagWrapper ValueManager { get; }
 
-    /// <summary>
-    /// Abort any outstanding IO to the PLC. <see cref="PlcTagStatus"/>.
-    /// </summary>
+    /// <summary>Abort any outstanding IO to the PLC. <see cref="PlcTagStatus"/>.</summary>
     /// <returns>A Value.</returns>
     int Abort();
 
-    /// <summary>
-    /// Get size tag.
-    /// </summary>
+    /// <summary>Get size tag.</summary>
     /// <returns>A Value.</returns>
     int GetSize();
 
-    /// <summary>
-    /// Get status operation. <see cref="PlcTagStatus"/>.
-    /// </summary>
+    /// <summary>Get status operation. <see cref="PlcTagStatus"/>.</summary>
     /// <returns>A Value.</returns>
     int GetStatus();
 
-    /// <summary>
-    /// Lock for multitrading. <see cref="PlcTagStatus"/>.
-    /// </summary>
+    /// <summary>Lock for multitrading. <see cref="PlcTagStatus"/>.</summary>
     /// <returns>A Value.</returns>
     int Lock();
 
-    /// <summary>
-    /// Performs read of Tag.
-    /// </summary>
+    /// <summary>Performs read of Tag.</summary>
     /// <returns>A Value.</returns>
     PlcTagResult Read();
 
-    /// <summary>
-    /// Unlock for multitrading <see cref="PlcTagStatus"/>.
-    /// </summary>
+    /// <summary>Unlock for multitrading <see cref="PlcTagStatus"/>.</summary>
     /// <returns>A Value.</returns>
     int Unlock();
 
-    /// <summary>
-    /// Perform write of Tag.
-    /// </summary>
+    /// <summary>Perform write of Tag.</summary>
     /// <returns>A Value.</returns>
     PlcTagResult Write();
 }

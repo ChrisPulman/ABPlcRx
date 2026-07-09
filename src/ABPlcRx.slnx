@@ -1,0 +1,23 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/SolutionConfig/">
+    <File Path="../.editorconfig" />
+    <File Path="../.github/dependabot.yml" />
+    <File Path="../.gitignore" />
+    <File Path="../Directory.Build.props" />
+    <File Path="../LICENSE" />
+    <File Path="../README.md" />
+    <File Path="../version.json" />
+  </Folder>
+  <Project Path="../build/_build.csproj">
+    <Build Solution="*|Any CPU" Project="false" />
+  </Project>
+  <Project Path="ABPlcRx.SourceGenerators/ABPlcRx.SourceGenerators.csproj" />
+  <Project Path="ABPlcRx.TestApp/ABPlcRx.TestApp.csproj" />
+  <Project Path="ABPlcRx.Tests/ABPlcRx.Tests.csproj" />
+  <Project Path="ABPlcRx/ABPlcRx.csproj" />
+</Solution>

@@ -24,7 +24,7 @@ Supported PLC families (via libplctag)
 Core features
 - Create tags and group them for bulk operations
 - Reactive APIs (IObservable) for on‑change updates
-- Async reactive APIs (IObservableAsync) through ReactiveUI.Extensions on .NET 8+
+- Async reactive APIs (IObservableAsync) through ReactiveUI.Primitives.Async on .NET 8+
 - Read/write primitives: 8/16/32/64‑bit signed/unsigned, 32/64‑bit float
 - Bit addressing helpers for coil/word bits
 - String and structure support (libplctag style)
@@ -51,9 +51,9 @@ Quick start
 ```csharp
 using ABPlcRx;
 using System;
-using System.Reactive.Disposables;
+using ReactiveUI.Primitives.Disposables;
 
-var disposables = new CompositeDisposable();
+var disposables = new MultipleDisposable();
 
 // SLC/PLC5/MicroLogix example (500ms scan)
 var slc = new ABPlcRx(PlcType.SLC, "192.168.1.50", TimeSpan.FromMilliseconds(500));
@@ -99,26 +99,24 @@ lgx.Value("Ready", ready);
 
 Reactive API highlights
 - Observe<T>(variable, bit = -1): stream values on change, supports late‑added tags
-- ObserveAsync<T>(variable, bit = -1): async-native stream using ReactiveUI.Extensions.Async on .NET 8+
+- ObserveAsyncObservable<T>(variable, bit = -1): async-native stream using ReactiveUI.Primitives.Async on .NET 8+
 - ObserveMany(params string[] variables): latest values as a dictionary
-- ObserveManyAsync(params string[] variables): async-native latest value dictionaries
+- ObserveManyAsyncObservable(params string[] variables): async-native latest value dictionaries
 - ObserveGroup(groupName): emits tag objects in a group when they change
-- ObserveGroupAsync(groupName): async-native group stream
+- ObserveGroupAsyncObservable(groupName): async-native group stream
 - ObserveSampled<T>(variable, sampleInterval, bit, scheduler): sampled stream for rate limiting
-- ObserveSampledAsync<T>(variable, sampleInterval, bit, scheduler): async-native sampled stream
+- ObserveSampledAsyncObservable<T>(variable, sampleInterval, bit, scheduler): async-native sampled stream
 - ObserveErrors(): only tag operations that returned an error
-- ObserveErrorsAsync(): async-native error stream
+- ObserveErrorsAsyncObservable(): async-native error stream
 - CreateWriter<T>(variable, bit): returns an IObserver<T> that writes on OnNext
 
 Async observables
 ```csharp
-using ReactiveUI.Extensions.Async;
+using ReactiveUI.Primitives.Async;
 
-var counter = lgx.ObserveAsync<int>("Counter");
+var counter = lgx.ObserveAsyncObservable<int>("Counter");
 
-// IObservableAsync<T> can use ReactiveUI.Extensions.Async operators,
-// including Select, Where, Merge, CombineLatest, Retry, Timeout, Publish,
-// ReplayLatest, ToObservable, and ToObservableAsync.
+// IObservableAsync<T> can use ReactiveUI.Primitives.Async operators.
 var activeCounter =
     counter
         .Where(value => value > 0)
@@ -193,20 +191,20 @@ API surface (high level)
 - ABPlcRx (implements IABPlcRx)
   - AddUpdateTagItem<T>(variable, tagName, tagGroup = "Default")
   - Observe<T>(variable, bit = -1)
-  - ObserveAsync<T>(variable, bit = -1) on .NET 8+
+  - ObserveAsyncObservable<T>(variable, bit = -1) on .NET 8+
   - ObserveMany(params string[] variables)
-  - ObserveManyAsync(params string[] variables) on .NET 8+
+  - ObserveManyAsyncObservable(params string[] variables) on .NET 8+
   - ObserveGroup(groupName)
-  - ObserveGroupAsync(groupName) on .NET 8+
+  - ObserveGroupAsyncObservable(groupName) on .NET 8+
   - ObserveSampled<T>(variable, sampleInterval, bit = -1, scheduler = null)
-  - ObserveSampledAsync<T>(variable, sampleInterval, bit = -1, scheduler = null) on .NET 8+
+  - ObserveSampledAsyncObservable<T>(variable, sampleInterval, bit = -1, scheduler = null) on .NET 8+
   - ObserveErrors()
-  - ObserveErrorsAsync() on .NET 8+
+  - ObserveErrorsAsyncObservable() on .NET 8+
   - CreateWriter<T>(variable, bit = -1)
   - Value<T>(variable, bit = -1) / Value<T>(variable, value, bit = -1)
   - Read()/Read(variable) and Write()/Write(variable)
   - Ping(bool echo = false), PingAsync(...), ObservePing(interval,...)
-  - ObservePingAsync(interval,...) on .NET 8+
+  - ObservePingAsyncObservable(interval,...) on .NET 8+
 
 Testing
 - Tests are in `src/ABPlcRx.Tests`.
