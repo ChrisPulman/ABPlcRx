@@ -2,19 +2,10 @@
 // Chris Pulman licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using ReactiveUI.Primitives.Disposables;
 #if REACTIVE_SHIM
-using ReactiveUI.Primitives.Extensions.Reactive;
-using ReactiveUI.Primitives.Reactive;
 using SignalFactory = ReactiveUI.Primitives.Reactive.Signals.Signal;
 #else
-using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Concurrency;
-using ReactiveUI.Primitives.Extensions;
 using SignalFactory = ReactiveUI.Primitives.Signals.Signal;
-#endif
-#if NET8_0_OR_GREATER
-using ReactiveUI.Primitives.Async;
 #endif
 
 #if REACTIVELIST_REACTIVE
@@ -96,12 +87,10 @@ public class ABPlcRx : IABPlcRx
     /// <value>The data read.</value>
     public IObservable<IPlcTag?> ObserveAll => MergeTagChanges(_plc.Tags).Select(c => c.Tag);
 
-#if NET8_0_OR_GREATER
     /// <summary>Gets the data read as an async-native observable.</summary>
     /// <value>The async data read stream.</value>
     public IObservableAsync<IPlcTag?> ObserveAllAsyncObservable =>
         ObservableAsyncBridgeExtensions.ToAsyncObservable(ObserveAll);
-#endif
 
     /// <summary>Gets or sets a value indicating whether [scan enabled].</summary>
     /// <value>

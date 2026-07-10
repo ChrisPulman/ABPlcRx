@@ -4,7 +4,6 @@
 
 using System.Collections.ObjectModel;
 using System.Net.NetworkInformation;
-using ReactiveUI.Primitives.Signals;
 
 #if REACTIVELIST_REACTIVE
 namespace ABPlcRx.Reactive;

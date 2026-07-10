@@ -4,13 +4,10 @@
 
 using System.Collections;
 #if REACTIVE_SHIM
-using ReactiveUI.Primitives.Reactive;
 using SignalFactory = ReactiveUI.Primitives.Reactive.Signals.Signal;
 #else
-using ReactiveUI.Primitives;
 using SignalFactory = ReactiveUI.Primitives.Signals.Signal;
 #endif
-using ReactiveUI.Primitives.Signals;
 
 #if REACTIVELIST_REACTIVE
 namespace ABPlcRx.Reactive;

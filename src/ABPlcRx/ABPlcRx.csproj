@@ -14,6 +14,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Using Include="ReactiveUI.Primitives.Signals" />
+    <Using Include="ReactiveUI.Primitives" />
+    <Using Include="ReactiveUI.Primitives.Async" />
+    <Using Include="ReactiveUI.Primitives.Disposables" />
+    <Using Include="ReactiveUI.Primitives.Extensions" />
+    <Using Include="ReactiveUI.Primitives.Concurrency" />
+  </ItemGroup>
+
+  <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
       <_Parameter1>ABPlcRx.Tests</_Parameter1>
     </AssemblyAttribute>

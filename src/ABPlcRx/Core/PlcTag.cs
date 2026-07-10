@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using ReactiveUI.Primitives.Signals;
 
 #if REACTIVELIST_REACTIVE
 namespace ABPlcRx.Reactive;
