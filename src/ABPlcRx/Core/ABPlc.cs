@@ -4,9 +4,12 @@
 
 using System.Collections.ObjectModel;
 using System.Net.NetworkInformation;
-using ReactiveUI.Primitives.Signals;
 
+#if REACTIVELIST_REACTIVE
+namespace ABPlcRx.Reactive;
+#else
 namespace ABPlcRx;
+#endif
 
 /// <summary>Allen Bradley Plc.</summary>
 internal sealed class ABPlc : IDisposable
@@ -39,7 +42,7 @@ internal sealed class ABPlc : IDisposable
     /// <param name="address">The IP address of the PLC.</param>
     /// <param name="plcType">Type of the PLC.</param>
     public ABPlc(string address, PlcType plcType)
-        : this(address, plcType, null)
+        : this(address, plcType, null, LibPlcTagNative.Instance)
     {
     }
 
@@ -51,15 +54,28 @@ internal sealed class ABPlc : IDisposable
     /// <para></para>Slot number where cpu is installed: 0,1..</param>
     /// <exception cref="System.ArgumentException">PortType and Slot must be specified for ControlLogix / CompactLogix processors.</exception>
     public ABPlc(string address, PlcType plcType, string? slot)
+        : this(address, plcType, slot, LibPlcTagNative.Instance)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="ABPlc" /> class.</summary>
+    /// <param name="address">The IP address of the PLC.</param>
+    /// <param name="plcType">Type of the PLC.</param>
+    /// <param name="slot">The PLC slot path.</param>
+    /// <param name="native">The native tag adapter.</param>
+    internal ABPlc(string address, PlcType plcType, string? slot, IPlcTagNative native)
     {
         if (plcType == PlcType.LGX && string.IsNullOrEmpty(slot))
         {
             throw new ArgumentException("plcType and slot must be specified for ControlLogix / CompactLogix processors");
         }
 
+        ArgumentExceptionHelper.ThrowIfNull(native, nameof(native));
+
         IPAddress = address;
         Slot = slot;
         PlcType = plcType;
+        Native = native;
     }
 
     /// <summary>Finalizes an instance of the <see cref="ABPlc"/> class.</summary>
@@ -129,6 +145,9 @@ internal sealed class ABPlc : IDisposable
 
     /// <summary>Gets or sets communication timeout millisec.</summary>
     public int Timeout { get; set; } = 5000;
+
+    /// <summary>Gets the native tag adapter.</summary>
+    internal IPlcTagNative Native { get; }
 
     /// <summary>Creates new TagList.</summary>
     /// <param name="name">The name.</param>

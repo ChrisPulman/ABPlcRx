@@ -2,15 +2,11 @@
 // Chris Pulman licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-using ReactiveUI.Primitives.Concurrency;
-#if NET8_0_OR_GREATER
-using ReactiveUI.Primitives.Async;
-#endif
-
+#if REACTIVELIST_REACTIVE
+namespace ABPlcRx.Reactive;
+#else
 namespace ABPlcRx;
+#endif
 
 /// <summary>Reactive Allen Bradley PLC facade contract.</summary>
 /// <seealso cref="IDisposable" />
@@ -25,13 +21,11 @@ public interface IABPlcRx : IDisposable
     /// </value>
     IObservable<IPlcTag?> ObserveAll { get; }
 
-#if NET8_0_OR_GREATER
     /// <summary>Gets the asynchronous observe all stream.</summary>
     /// <value>
     /// The asynchronous observe all stream.
     /// </value>
     IObservableAsync<IPlcTag?> ObserveAllAsyncObservable { get; }
-#endif
 
     /// <summary>Gets or sets a value indicating whether [scan enabled].</summary>
     /// <value>

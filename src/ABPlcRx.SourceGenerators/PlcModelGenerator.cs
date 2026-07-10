@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Immutable;
-using System.Linq;
 using System.Text;
 using System.Threading;
 using Microsoft.CodeAnalysis;
@@ -17,11 +16,32 @@ namespace ABPlcRx.SourceGenerators;
 [Generator]
 public sealed class PlcModelGenerator : IIncrementalGenerator
 {
-    /// <summary>The fully qualified PLC model attribute metadata name.</summary>
-    private const string PlcModelAttributeName = "ABPlcRx.SourceGeneration.PlcModelAttribute";
+    /// <summary>The PLC model attribute type name.</summary>
+    private const string PlcModelAttributeName = "PlcModelAttribute";
 
-    /// <summary>The fully qualified PLC tag attribute metadata name.</summary>
-    private const string PlcTagAttributeName = "ABPlcRx.SourceGeneration.PlcTagAttribute";
+    /// <summary>The PLC tag attribute type name.</summary>
+    private const string PlcTagAttributeName = "PlcTagAttribute";
+
+    /// <summary>The source-generation namespace suffix appended to the runtime API namespace.</summary>
+    private const string SourceGenerationNamespaceSuffix = ".SourceGeneration";
+
+    /// <summary>The default runtime API namespace.</summary>
+    private const string DefaultApiNamespace = "ABPlcRx";
+
+    /// <summary>The System.Reactive-flavoured runtime API namespace.</summary>
+    private const string ReactiveApiNamespace = "ABPlcRx.Reactive";
+
+    /// <summary>The number of constructor arguments expected by class-level PLC tag attributes.</summary>
+    private const int ClassTagConstructorArgumentCount = 3;
+
+    /// <summary>The value-type argument index in class-level PLC tag attributes.</summary>
+    private const int ClassTagValueTypeArgumentIndex = 0;
+
+    /// <summary>The property-name argument index in class-level PLC tag attributes.</summary>
+    private const int ClassTagPropertyNameArgumentIndex = 1;
+
+    /// <summary>The tag-name argument index in class-level PLC tag attributes.</summary>
+    private const int ClassTagNameArgumentIndex = 2;
 
     /// <summary>The diagnostic descriptor used when a model type is not partial.</summary>
     private static readonly DiagnosticDescriptor PartialRequiredDescriptor = new(
@@ -63,8 +83,9 @@ public sealed class PlcModelGenerator : IIncrementalGenerator
             return null;
         }
 
-        var tags = CollectTags(typeSymbol);
-        if (tags.Length == 0 && !HasAttribute(typeSymbol.GetAttributes(), PlcModelAttributeName))
+        var apiNamespace = GetApiNamespace(typeSymbol.GetAttributes(), PlcModelAttributeName);
+        var tags = CollectTags(typeSymbol, ref apiNamespace);
+        if (tags.Length == 0 && apiNamespace is null)
         {
             return null;
         }
@@ -80,7 +101,7 @@ public sealed class PlcModelGenerator : IIncrementalGenerator
         }
 
         var hintName = $"{GetSafeHintName(typeSymbol)}.ABPlcRx.g.cs";
-        return GenerationResult.FromSource(hintName, GenerateModel(typeSymbol, tags));
+        return GenerationResult.FromSource(hintName, GenerateModel(typeSymbol, tags, apiNamespace ?? DefaultApiNamespace));
     }
 
     /// <summary>Emits generated source or reports a candidate diagnostic.</summary>
@@ -99,13 +120,20 @@ public sealed class PlcModelGenerator : IIncrementalGenerator
 
     /// <summary>Collects PLC tag metadata from class and property attributes.</summary>
     /// <param name="typeSymbol">The candidate type symbol.</param>
+    /// <param name="apiNamespace">The runtime API namespace resolved from source-generation attributes.</param>
     /// <returns>The collected tag models.</returns>
-    private static ImmutableArray<TagModel> CollectTags(INamedTypeSymbol typeSymbol)
+    private static ImmutableArray<TagModel> CollectTags(INamedTypeSymbol typeSymbol, ref string? apiNamespace)
     {
         var builder = ImmutableArray.CreateBuilder<TagModel>();
 
-        foreach (var attribute in typeSymbol.GetAttributes().Where(static x => IsAttribute(x, PlcTagAttributeName)))
+        foreach (var attribute in typeSymbol.GetAttributes())
         {
+            if (!TryGetApiNamespace(attribute, PlcTagAttributeName, out var tagApiNamespace))
+            {
+                continue;
+            }
+
+            apiNamespace ??= tagApiNamespace;
             if (TryCreateClassTag(attribute, out var tag))
             {
                 builder.Add(tag);
@@ -114,8 +142,14 @@ public sealed class PlcModelGenerator : IIncrementalGenerator
 
         foreach (var property in typeSymbol.GetMembers().OfType<IPropertySymbol>())
         {
-            foreach (var attribute in property.GetAttributes().Where(static x => IsAttribute(x, PlcTagAttributeName)))
+            foreach (var attribute in property.GetAttributes())
             {
+                if (!TryGetApiNamespace(attribute, PlcTagAttributeName, out var tagApiNamespace))
+                {
+                    continue;
+                }
+
+                apiNamespace ??= tagApiNamespace;
                 if (TryCreatePropertyTag(property, attribute, out var tag))
                 {
                     builder.Add(tag);
@@ -133,10 +167,10 @@ public sealed class PlcModelGenerator : IIncrementalGenerator
     private static bool TryCreateClassTag(AttributeData attribute, out TagModel tag)
     {
         tag = default;
-        if (attribute.ConstructorArguments.Length != 3 ||
-            attribute.ConstructorArguments[0].Value is not ITypeSymbol valueType ||
-            attribute.ConstructorArguments[1].Value is not string propertyName ||
-            attribute.ConstructorArguments[2].Value is not string tagName ||
+        if (attribute.ConstructorArguments.Length != ClassTagConstructorArgumentCount ||
+            attribute.ConstructorArguments[ClassTagValueTypeArgumentIndex].Value is not ITypeSymbol valueType ||
+            attribute.ConstructorArguments[ClassTagPropertyNameArgumentIndex].Value is not string propertyName ||
+            attribute.ConstructorArguments[ClassTagNameArgumentIndex].Value is not string tagName ||
             string.IsNullOrWhiteSpace(propertyName) ||
             string.IsNullOrWhiteSpace(tagName))
         {
@@ -154,8 +188,7 @@ public sealed class PlcModelGenerator : IIncrementalGenerator
             GetRegisterType(valueType, settings.Bit),
             settings.Bit,
             settings.RegisterTag,
-            generateProperty: true,
-            requiresValueGetOrDefault: false);
+            generateProperty: true);
         return true;
     }
 
@@ -186,8 +219,7 @@ public sealed class PlcModelGenerator : IIncrementalGenerator
             GetRegisterType(valueType, settings.Bit),
             settings.Bit,
             settings.RegisterTag,
-            generateProperty: false,
-            requiresValueGetOrDefault: false);
+            generateProperty: false);
         return true;
     }
 
@@ -238,8 +270,9 @@ public sealed class PlcModelGenerator : IIncrementalGenerator
     /// <summary>Generates the partial model source for collected tags.</summary>
     /// <param name="typeSymbol">The target type symbol.</param>
     /// <param name="tags">The tags to generate.</param>
+    /// <param name="apiNamespace">The runtime API namespace used by generated controller references.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateModel(INamedTypeSymbol typeSymbol, ImmutableArray<TagModel> tags)
+    private static string GenerateModel(INamedTypeSymbol typeSymbol, ImmutableArray<TagModel> tags, string apiNamespace)
     {
         var builder = new StringBuilder();
         var namespaceName = typeSymbol.ContainingNamespace.IsGlobalNamespace ? null : typeSymbol.ContainingNamespace.ToDisplayString();
@@ -247,7 +280,9 @@ public sealed class PlcModelGenerator : IIncrementalGenerator
         _ = builder.AppendLine("// <auto-generated />");
         _ = builder.AppendLine("#nullable enable");
         _ = builder.AppendLine("using System;");
-        _ = builder.AppendLine("using ReactiveUI.Primitives;");
+        _ = apiNamespace == ReactiveApiNamespace
+            ? builder.AppendLine("using ReactiveUI.Primitives.Reactive;")
+            : builder.AppendLine("using ReactiveUI.Primitives;");
         _ = builder.AppendLine();
 
         if (!string.IsNullOrWhiteSpace(namespaceName))
@@ -259,16 +294,17 @@ public sealed class PlcModelGenerator : IIncrementalGenerator
         _ = builder.Append("partial class ").AppendLine(typeSymbol.Name);
         _ = builder.AppendLine("{");
         _ = builder.AppendLine("    private readonly global::ReactiveUI.Primitives.Disposables.MultipleDisposable _abPlcRxSubscriptions = new();");
-        _ = builder.AppendLine("    private global::ABPlcRx.IABPlcRx? _abPlcRxController;");
+        _ = builder.Append("    private global::").Append(apiNamespace).AppendLine(".IABPlcRx? _abPlcRxController;");
         _ = builder.AppendLine();
 
         foreach (var tag in tags)
         {
-            AppendTagMembers(builder, tag);
+            AppendTagMembers(builder, tag, apiNamespace);
         }
 
-        AppendAttachMethod(builder, tags);
+        AppendAttachMethod(builder, tags, apiNamespace);
         AppendDetachMethod(builder, tags);
+        AppendObserverType(builder);
 
         _ = builder.AppendLine("}");
         return builder.ToString();
@@ -277,7 +313,8 @@ public sealed class PlcModelGenerator : IIncrementalGenerator
     /// <summary>Appends properties and observable accessors for one tag.</summary>
     /// <param name="builder">The target source builder.</param>
     /// <param name="tag">The tag model.</param>
-    private static void AppendTagMembers(StringBuilder builder, TagModel tag)
+    /// <param name="apiNamespace">The runtime API namespace used by generated controller references.</param>
+    private static void AppendTagMembers(StringBuilder builder, TagModel tag, string apiNamespace)
     {
         var fieldName = "_" + ToCamelCase(SanitizeIdentifier(tag.PropertyName));
         var observableFieldName = fieldName + "Observable";
@@ -303,7 +340,7 @@ public sealed class PlcModelGenerator : IIncrementalGenerator
         _ = builder.AppendLine("#if NET8_0_OR_GREATER");
         _ = builder.Append("    public global::ReactiveUI.Primitives.Async.IObservableAsync<").Append(tag.ObserveType).Append("> ")
             .Append(tag.PropertyName).AppendLine("ObservableAsync =>");
-        _ = builder.Append("        global::ABPlcRx.ObservableAsyncBridgeExtensions.ToAsyncObservable(")
+        _ = builder.Append("        global::").Append(apiNamespace).Append(".ObservableAsyncBridgeExtensions.ToAsyncObservable(")
             .Append(tag.PropertyName).AppendLine("Observable);");
         _ = builder.AppendLine("#endif");
         _ = builder.AppendLine();
@@ -312,9 +349,10 @@ public sealed class PlcModelGenerator : IIncrementalGenerator
     /// <summary>Appends the AttachPlcStreams method.</summary>
     /// <param name="builder">The target source builder.</param>
     /// <param name="tags">The generated tags.</param>
-    private static void AppendAttachMethod(StringBuilder builder, ImmutableArray<TagModel> tags)
+    /// <param name="apiNamespace">The runtime API namespace used by generated controller references.</param>
+    private static void AppendAttachMethod(StringBuilder builder, ImmutableArray<TagModel> tags, string apiNamespace)
     {
-        _ = builder.AppendLine("    public global::System.IDisposable AttachPlcStreams(global::ABPlcRx.IABPlcRx controller)");
+        _ = builder.Append("    public global::System.IDisposable AttachPlcStreams(global::").Append(apiNamespace).AppendLine(".IABPlcRx controller)");
         _ = builder.AppendLine("    {");
         _ = builder.AppendLine("        if (controller is null)");
         _ = builder.AppendLine("        {");
@@ -339,15 +377,9 @@ public sealed class PlcModelGenerator : IIncrementalGenerator
             _ = builder.Append("        ").Append(observableFieldName).Append(" = controller.Observe<").Append(tag.ObserveType).Append(">(")
                 .Append(ToLiteral(tag.Variable)).Append(", ").Append(tag.Bit.ToString(System.Globalization.CultureInfo.InvariantCulture))
                 .AppendLine(").Publish().RefCount();");
-            _ = builder.Append("        _abPlcRxSubscriptions.Add(").Append(observableFieldName).Append(".Subscribe(value => ");
-            if (tag.RequiresValueGetOrDefault)
-            {
-                _ = builder.Append(tag.PropertyName).AppendLine(" = value.GetValueOrDefault()));");
-            }
-            else
-            {
-                _ = builder.Append(tag.PropertyName).AppendLine(" = value));");
-            }
+            _ = builder.Append("        _abPlcRxSubscriptions.Add(").Append(observableFieldName).Append(".Subscribe(new AbPlcRxObserver<")
+                .Append(tag.ObserveType).Append(">(value => ");
+            _ = builder.Append(tag.PropertyName).AppendLine(" = value)));");
         }
 
         _ = builder.AppendLine();
@@ -374,19 +406,71 @@ public sealed class PlcModelGenerator : IIncrementalGenerator
         _ = builder.AppendLine("    }");
     }
 
-    /// <summary>Checks whether an attribute collection contains a metadata name.</summary>
-    /// <param name="attributes">The attribute collection.</param>
-    /// <param name="metadataName">The metadata name.</param>
-    /// <returns>True when the metadata name is present.</returns>
-    private static bool HasAttribute(ImmutableArray<AttributeData> attributes, string metadataName) =>
-        attributes.Any(attribute => IsAttribute(attribute, metadataName));
+    /// <summary>Appends the generated observer wrapper type.</summary>
+    /// <param name="builder">The target source builder.</param>
+    private static void AppendObserverType(StringBuilder builder)
+    {
+        _ = builder.AppendLine();
+        _ = builder.AppendLine("    private sealed class AbPlcRxObserver<T>(global::System.Action<T> onNext) : global::System.IObserver<T>");
+        _ = builder.AppendLine("    {");
+        _ = builder.AppendLine("        public void OnCompleted()");
+        _ = builder.AppendLine("        {");
+        _ = builder.AppendLine("        }");
+        _ = builder.AppendLine();
+        _ = builder.AppendLine("        public void OnError(global::System.Exception error)");
+        _ = builder.AppendLine("        {");
+        _ = builder.AppendLine("        }");
+        _ = builder.AppendLine();
+        _ = builder.AppendLine("        public void OnNext(T value) => onNext(value);");
+        _ = builder.AppendLine("    }");
+    }
 
-    /// <summary>Checks whether an attribute matches a metadata name.</summary>
+    /// <summary>Gets the runtime API namespace from an attribute collection.</summary>
+    /// <param name="attributes">The attributes to inspect.</param>
+    /// <param name="attributeName">The attribute type name.</param>
+    /// <returns>The runtime API namespace, or null.</returns>
+    private static string? GetApiNamespace(ImmutableArray<AttributeData> attributes, string attributeName)
+    {
+        foreach (var attribute in attributes)
+        {
+            if (TryGetApiNamespace(attribute, attributeName, out var apiNamespace))
+            {
+                return apiNamespace;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Gets the runtime API namespace from one source-generation attribute.</summary>
     /// <param name="attribute">The attribute data.</param>
-    /// <param name="metadataName">The metadata name.</param>
-    /// <returns>True when the attribute matches.</returns>
-    private static bool IsAttribute(AttributeData attribute, string metadataName) =>
-        attribute.AttributeClass?.ToDisplayString() == metadataName;
+    /// <param name="attributeName">The attribute type name.</param>
+    /// <param name="apiNamespace">The resolved runtime API namespace.</param>
+    /// <returns>True when the attribute belongs to an ABPlcRx API namespace.</returns>
+    private static bool TryGetApiNamespace(AttributeData attribute, string attributeName, out string apiNamespace)
+    {
+        apiNamespace = string.Empty;
+        var attributeClass = attribute.AttributeClass;
+        if (attributeClass?.Name != attributeName)
+        {
+            return false;
+        }
+
+        var sourceGenerationNamespace = attributeClass.ContainingNamespace.ToDisplayString();
+        if (!sourceGenerationNamespace.EndsWith(SourceGenerationNamespaceSuffix, System.StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var candidateApiNamespace = sourceGenerationNamespace.Substring(0, sourceGenerationNamespace.Length - SourceGenerationNamespaceSuffix.Length);
+        if (candidateApiNamespace is not (DefaultApiNamespace or ReactiveApiNamespace))
+        {
+            return false;
+        }
+
+        apiNamespace = candidateApiNamespace;
+        return true;
+    }
 
     /// <summary>Checks whether a type declaration is partial.</summary>
     /// <param name="declaration">The declaration.</param>
@@ -535,7 +619,6 @@ public sealed class PlcModelGenerator : IIncrementalGenerator
         /// <param name="bit">The configured bit index.</param>
         /// <param name="registerTag">A value indicating whether to register the tag.</param>
         /// <param name="generateProperty">A value indicating whether to generate a property.</param>
-        /// <param name="requiresValueGetOrDefault">A value indicating whether nullable values need default conversion.</param>
         public TagModel(
             string propertyName,
             string variable,
@@ -546,8 +629,7 @@ public sealed class PlcModelGenerator : IIncrementalGenerator
             string registerType,
             int bit,
             bool registerTag,
-            bool generateProperty,
-            bool requiresValueGetOrDefault)
+            bool generateProperty)
         {
             PropertyName = SanitizeIdentifier(propertyName);
             Variable = variable;
@@ -559,7 +641,6 @@ public sealed class PlcModelGenerator : IIncrementalGenerator
             Bit = bit;
             RegisterTag = registerTag;
             GenerateProperty = generateProperty;
-            RequiresValueGetOrDefault = requiresValueGetOrDefault;
         }
 
         /// <summary>Gets the generated property name.</summary>
@@ -591,9 +672,6 @@ public sealed class PlcModelGenerator : IIncrementalGenerator
 
         /// <summary>Gets a value indicating whether a backing property should be generated.</summary>
         public bool GenerateProperty { get; }
-
-        /// <summary>Gets a value indicating whether nullable values need default conversion.</summary>
-        public bool RequiresValueGetOrDefault { get; }
     }
 
     /// <summary>Stores optional tag settings read from attribute arguments.</summary>

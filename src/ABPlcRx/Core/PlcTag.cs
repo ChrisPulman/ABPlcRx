@@ -3,10 +3,12 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using ReactiveUI.Primitives.Signals;
-using libplctag.NativeImport;
 
+#if REACTIVELIST_REACTIVE
+namespace ABPlcRx.Reactive;
+#else
 namespace ABPlcRx;
+#endif
 
 /// <summary>Tag base definition.</summary>
 /// <typeparam name="TType">The type of the type.</typeparam>
@@ -15,6 +17,9 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
 {
     /// <summary>Publishes tag read changes.</summary>
     private readonly Signal<PlcTagResult> _changedSubject = new();
+
+    /// <summary>Native PLC tag adapter.</summary>
+    private readonly IPlcTagNative _native;
 
     /// <summary>Tracks disposal state.</summary>
     private bool _disposed;
@@ -40,7 +45,8 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
         TagName = tagName;
         Size = size;
         Length = length;
-        ValueManager = new(this);
+        _native = plc.Native;
+        ValueManager = new(this, _native);
         TypeValue = typeof(TType);
 
         var url = $"protocol=ab_eip&gateway={plc.IPAddress}";
@@ -56,7 +62,7 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
         }
 
         // create reference
-        Handle = plctag.plc_tag_create(url, plc.Timeout);
+        Handle = _native.Create(url, plc.Timeout);
 
         Value = TagHelper.CreateObject<TType>(Length);
     }
@@ -145,7 +151,7 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
 
     /// <summary>Abort any outstanding IO to the PLC. <see cref="PlcTagStatus"/>.</summary>
     /// <returns>A Value.</returns>
-    public int Abort() => plctag.plc_tag_abort(Handle);
+    public int Abort() => _native.Abort(Handle);
 
     /// <summary>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.</summary>
     public void Dispose()
@@ -156,15 +162,15 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
 
     /// <summary>Get size tag read from PLC.</summary>
     /// <returns>A Value.</returns>
-    public int GetSize() => plctag.plc_tag_get_size(Handle);
+    public int GetSize() => _native.GetSize(Handle);
 
     /// <summary>Get status operation. <see cref="PlcTagStatus"/>.</summary>
     /// <returns>A Value.</returns>
-    public int GetStatus() => plctag.plc_tag_status(Handle);
+    public int GetStatus() => _native.GetStatus(Handle);
 
     /// <summary>Lock for multitrading. <see cref="PlcTagStatus"/>.</summary>
     /// <returns>A Value.</returns>
-    public int Lock() => plctag.plc_tag_lock(Handle);
+    public int Lock() => _native.Lock(Handle);
 
     /// <summary>Performs read of Tag.</summary>
     /// <returns>A Value.</returns>
@@ -172,7 +178,7 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
     {
         var timestamp = DateTime.UtcNow;
         var watch = Stopwatch.StartNew();
-        var statusCode = plctag.plc_tag_read(Handle, ABPlc.Timeout);
+        var statusCode = _native.Read(Handle, ABPlc.Timeout);
 
         watch.Stop();
         IsRead = true;
@@ -195,7 +201,7 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
 
     /// <summary>Unlock for multitrading <see cref="PlcTagStatus"/>.</summary>
     /// <returns>A Value.</returns>
-    public int Unlock() => plctag.plc_tag_unlock(Handle);
+    public int Unlock() => _native.Unlock(Handle);
 
     /// <summary>Performs write of Tag.</summary>
     /// <returns>A Value.</returns>
@@ -210,7 +216,7 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
 
         var timestamp = DateTime.UtcNow;
         var watch = Stopwatch.StartNew();
-        var statusCode = plctag.plc_tag_write(Handle, ABPlc.Timeout);
+        var statusCode = _native.Write(Handle, ABPlc.Timeout);
         watch.Stop();
         IsWrite = true;
 
@@ -240,7 +246,7 @@ internal sealed class PlcTag<TType> : IPlcTag<TType>
         }
 
         // Always destroy native handle
-        _ = plctag.plc_tag_destroy(Handle);
+        _ = _native.Destroy(Handle);
         _disposed = true;
     }
 }

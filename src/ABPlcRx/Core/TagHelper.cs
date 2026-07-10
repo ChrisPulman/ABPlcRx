@@ -5,7 +5,11 @@
 using System.Collections;
 using System.Reflection;
 
+#if REACTIVELIST_REACTIVE
+namespace ABPlcRx.Reactive;
+#else
 namespace ABPlcRx;
+#endif
 
 /// <summary>Helper Tag.</summary>
 public static class TagHelper

@@ -2,24 +2,35 @@
 
   <PropertyGroup>
     <TargetFrameworks>net472;net48;net481;net8.0;net9.0;net10.0;net11.0</TargetFrameworks>
+    <AssemblyName>ABPlcRx.Reactive</AssemblyName>
+    <PackageId>ABPlcRx.Reactive</PackageId>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <DefineConstants>$(DefineConstants);REACTIVE_SHIM;REACTIVELIST_REACTIVE</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="libplctag.NativeImport" Version="2.0.0-alpha.8" />
-    <PackageReference Include="ReactiveUI.Primitives" Version="6.0.0" />
-    <PackageReference Include="ReactiveUI.Primitives.Async" Version="6.0.0" />
-    <PackageReference Include="ReactiveUI.Primitives.Extensions" Version="6.0.0" />
+    <Compile Include="..\ABPlcRx\**\*.cs"
+             Exclude="..\ABPlcRx\bin\**;..\ABPlcRx\obj\**"
+             LinkBase="ABPlcRx" />
   </ItemGroup>
 
   <ItemGroup>
-    <Using Include="ReactiveUI.Primitives.Signals" />
-    <Using Include="ReactiveUI.Primitives" />
     <Using Include="ReactiveUI.Primitives.Async" />
+    <Using Include="ReactiveUI.Primitives.Signals" />
     <Using Include="ReactiveUI.Primitives.Disposables" />
-    <Using Include="ReactiveUI.Primitives.Extensions" />
-    <Using Include="ReactiveUI.Primitives.Concurrency" />
+    <Using Include="ReactiveUI.Primitives.Reactive" />
+    <Using Include="ReactiveUI.Primitives.Extensions.Reactive" />
+    <Using Include="System.Reactive.Unit" Alias="RxVoid" />
+    <Using Include="System.Reactive.Concurrency.IScheduler" Alias="ISequencer" />
+    <Using Include="System.Reactive.Concurrency.TaskPoolScheduler" Alias="TaskPoolSequencer" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="libplctag.NativeImport" Version="2.0.0-alpha.8" />
+    <PackageReference Include="ReactiveUI.Primitives.Reactive" Version="6.0.0" />
+    <PackageReference Include="ReactiveUI.Primitives.Async.Reactive" Version="6.0.0" />
+    <PackageReference Include="ReactiveUI.Primitives.Extensions.Reactive" Version="6.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -49,5 +60,5 @@
             Condition="Exists('$(_ABPlcRxSourceGeneratorPath)')" />
     </ItemGroup>
   </Target>
-  
+
 </Project>

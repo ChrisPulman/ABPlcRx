@@ -1,11 +1,13 @@
 // Copyright (c) 2022-2026 Chris Pulman. All rights reserved.
 // Chris Pulman licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
-#if NET8_0_OR_GREATER
-using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Async;
+using PrimitivesResult = ReactiveUI.Primitives.Result;
 
+#if REACTIVELIST_REACTIVE
+namespace ABPlcRx.Reactive;
+#else
 namespace ABPlcRx;
+#endif
 
 /// <summary>Bridges synchronous observable streams to ReactiveUI.Primitives async observables.</summary>
 public static class ObservableAsyncBridgeExtensions
@@ -16,7 +18,14 @@ public static class ObservableAsyncBridgeExtensions
     /// <returns>An async observable that forwards source notifications.</returns>
     public static IObservableAsync<T> ToAsyncObservable<T>(IObservable<T> source)
     {
+#if NET8_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(source);
+#else
+        if (source is null)
+        {
+            throw new ArgumentNullException(nameof(source));
+        }
+#endif
         return new ObservableAsyncAdapter<T>(source);
     }
 
@@ -47,7 +56,7 @@ public static class ObservableAsyncBridgeExtensions
     {
         /// <summary>Forwards completion to the async observer.</summary>
         public void OnCompleted() =>
-            observer.OnCompletedAsync(Result.Success).AsTask().GetAwaiter().GetResult();
+            observer.OnCompletedAsync(PrimitivesResult.Success).AsTask().GetAwaiter().GetResult();
 
         /// <summary>Forwards errors to the async observer.</summary>
         /// <param name="error">The observed error.</param>
@@ -73,4 +82,3 @@ public static class ObservableAsyncBridgeExtensions
         }
     }
 }
-#endif

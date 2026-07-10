@@ -13,6 +13,45 @@ namespace ABPlcRx.Tests;
 /// <summary>Tests value objects and validation helpers that do not require PLC IO.</summary>
 public sealed class ValueObjectTests
 {
+    /// <summary>Expected PLC string storage size for a short string value.</summary>
+    private const int ExpectedStringSize = 88;
+
+    /// <summary>Expected PLC storage size for the sample integer array.</summary>
+    private const int ExpectedSampleIntegerArraySize = 12;
+
+    /// <summary>Sample count value for composite values.</summary>
+    private const int CompositeCount = 7;
+
+    /// <summary>Sample code value for composite values.</summary>
+    private const short CompositeCode = 4;
+
+    /// <summary>Expected PLC storage size for the sample composite value.</summary>
+    private const int ExpectedCompositeSize = 94;
+
+    /// <summary>Sample tag value used by result tests.</summary>
+    private const int SampleTagValue = 42;
+
+    /// <summary>Seconds added to create a later timestamp.</summary>
+    private const int LaterTimestampOffsetSeconds = 2;
+
+    /// <summary>Execution time for the first result.</summary>
+    private const long FirstExecutionTime = 5;
+
+    /// <summary>Execution time for the second result.</summary>
+    private const long SecondExecutionTime = 7;
+
+    /// <summary>Expected reduced execution time.</summary>
+    private const long CombinedExecutionTime = 12;
+
+    /// <summary>Bit index used by source generation attributes.</summary>
+    private const int AttributeBit = 3;
+
+    /// <summary>Invalid bit index used by wrapper validation.</summary>
+    private const int InvalidWrapperBitIndex = 8;
+
+    /// <summary>Invalid PLC string payload length.</summary>
+    private const int InvalidStringLength = 83;
+
     /// <summary>Sample integer array used by size calculation tests.</summary>
     private static readonly int[] SampleIntegers = [1, 2, 3];
 
@@ -23,9 +62,9 @@ public sealed class ValueObjectTests
     {
         await Assert.That(GetSizeObject(null)).IsEqualTo(0);
         await Assert.That(GetSizeObject(true)).IsEqualTo(1);
-        await Assert.That(GetSizeObject("hello")).IsEqualTo(88);
-        await Assert.That(GetSizeObject(SampleIntegers)).IsEqualTo(12);
-        await Assert.That(GetSizeObject(new CompositeValue { Count = 7, Code = 4, Text = "A" })).IsEqualTo(94);
+        await Assert.That(GetSizeObject("hello")).IsEqualTo(ExpectedStringSize);
+        await Assert.That(GetSizeObject(SampleIntegers)).IsEqualTo(ExpectedSampleIntegerArraySize);
+        await Assert.That(GetSizeObject(new CompositeValue { Count = CompositeCount, Code = CompositeCode, Text = "A" })).IsEqualTo(ExpectedCompositeSize);
         await Assert.That(IsNativeType(typeof(double))).IsTrue();
         await Assert.That(IsNativeType(typeof(CompositeValue))).IsFalse();
     }
@@ -35,17 +74,17 @@ public sealed class ValueObjectTests
     [Test]
     internal async Task PlcTagResultReduceAggregatesResultsAsync()
     {
-        var tag = new StubTag("Counter", 42);
+        var tag = new StubTag("Counter", SampleTagValue);
         var timestamp = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
-        var first = CreateResult(tag, timestamp.AddSeconds(2), 5, PlcTagStatus.StatusOK);
-        var second = CreateResult(tag, timestamp, 7, PlcTagStatus.ErrBadParam);
+        var first = CreateResult(tag, timestamp.AddSeconds(LaterTimestampOffsetSeconds), FirstExecutionTime, PlcTagStatus.StatusOK);
+        var second = CreateResult(tag, timestamp, SecondExecutionTime, PlcTagStatus.ErrBadParam);
 
         var reduced = PlcTagResult.Reduce([first, second]);
         var text = second.ToString();
 
         await Assert.That(reduced.Tag).IsEqualTo(tag);
         await Assert.That(reduced.Timestamp).IsEqualTo(timestamp);
-        await Assert.That(reduced.ExecutionTime).IsEqualTo(12);
+        await Assert.That(reduced.ExecutionTime).IsEqualTo(CombinedExecutionTime);
         await Assert.That(reduced.StatusCode).IsEqualTo(PlcTagStatus.ErrBadParam);
         await Assert.That(text).Contains("Counter");
         await Assert.That(text).Contains("42");
@@ -58,7 +97,7 @@ public sealed class ValueObjectTests
     internal async Task PlcTagExceptionConstructorsPreserveDetailsAsync()
     {
         var inner = new InvalidOperationException("inner");
-        var result = CreateResult(new StubTag("Counter", 42), DateTime.UtcNow, 1, PlcTagStatus.ErrBadParam);
+        var result = CreateResult(new StubTag("Counter", SampleTagValue), DateTime.UtcNow, 1, PlcTagStatus.ErrBadParam);
 
         var defaultException = new PlcTagException();
         var messageException = new PlcTagException("custom");
@@ -80,7 +119,7 @@ public sealed class ValueObjectTests
         {
             Variable = "Counter",
             Group = "Fast",
-            Bit = 3,
+            Bit = AttributeBit,
             RegisterTag = false,
         };
         var classAttribute = new PlcTagAttribute(typeof(int), "Counter", "N7:0");
@@ -91,7 +130,7 @@ public sealed class ValueObjectTests
         await Assert.That(propertyAttribute.PropertyName).IsNull();
         await Assert.That(propertyAttribute.Variable).IsEqualTo("Counter");
         await Assert.That(propertyAttribute.Group).IsEqualTo("Fast");
-        await Assert.That(propertyAttribute.Bit).IsEqualTo(3);
+        await Assert.That(propertyAttribute.Bit).IsEqualTo(AttributeBit);
         await Assert.That(propertyAttribute.RegisterTag).IsFalse();
         await Assert.That(classAttribute.ValueType).IsEqualTo(typeof(int));
         await Assert.That(classAttribute.PropertyName).IsEqualTo("Counter");
@@ -106,10 +145,10 @@ public sealed class ValueObjectTests
     {
         var wrapper = CreateWrapper(new StubTag("Counter", 0) { Size = 1, TypeValue = typeof(int) });
 
-        _ = Assert.Throws<ArgumentOutOfRangeException>(() => wrapper.SetBit(8, true));
+        _ = Assert.Throws<ArgumentOutOfRangeException>(() => wrapper.SetBit(InvalidWrapperBitIndex, true));
         _ = Assert.Throws<ArgumentNullException>(() => wrapper.SetBits(null!));
         _ = Assert.Throws<ArgumentOutOfRangeException>(() => wrapper.SetString(string.Empty));
-        _ = Assert.Throws<ArgumentOutOfRangeException>(() => wrapper.SetString(new string('x', 83)));
+        _ = Assert.Throws<ArgumentOutOfRangeException>(() => wrapper.SetString(new string('x', InvalidStringLength)));
         await Assert.That(wrapper.GetType(null!)).IsNull();
         await Assert.That(InvokeWrapperGet(wrapper, null)).IsNull();
         await Assert.That(() => InvokeWrapperSet(wrapper, null)).ThrowsNothing();
@@ -139,18 +178,7 @@ public sealed class ValueObjectTests
     /// <summary>Creates a PLC tag wrapper through its internal constructor.</summary>
     /// <param name="tag">The wrapped tag.</param>
     /// <returns>The wrapper instance.</returns>
-    private static PlcTagWrapper CreateWrapper(IPlcTag tag)
-    {
-        var result = Activator.CreateInstance(
-            typeof(PlcTagWrapper),
-            BindingFlags.Instance | BindingFlags.NonPublic,
-            null,
-            [tag],
-            null);
-        return result is PlcTagWrapper wrapper
-            ? wrapper
-            : throw new InvalidOperationException("The PLC tag wrapper constructor returned an unexpected value.");
-    }
+    private static PlcTagWrapper CreateWrapper(IPlcTag tag) => new(tag);
 
     /// <summary>Invokes the internal data length size helper.</summary>
     /// <param name="value">The value to measure.</param>
