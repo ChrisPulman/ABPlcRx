@@ -4,13 +4,19 @@
 
 using System.Collections;
 using System.Text;
-using libplctag.NativeImport;
 
+#if REACTIVELIST_REACTIVE
+namespace ABPlcRx.Reactive;
+#else
 namespace ABPlcRx;
+#endif
 
 /// <summary>Plc Tag Wrapper.</summary>
 public class PlcTagWrapper
 {
+    /// <summary>Number of bits in a byte.</summary>
+    private const byte BitsPerByte = 8;
+
     /// <summary>Byte offset of string payload after the length header.</summary>
     private const byte ByteHeaderLengthString = 4;
 
@@ -20,9 +26,17 @@ public class PlcTagWrapper
     /// <summary>The wrapped PLC tag.</summary>
     private readonly IPlcTag _tag;
 
+    /// <summary>Native PLC tag adapter.</summary>
+    private readonly IPlcTagNative _native;
+
     /// <summary>Initializes a new instance of the <see cref="PlcTagWrapper"/> class.</summary>
     /// <param name="tag">The wrapped tag.</param>
-    internal PlcTagWrapper(IPlcTag tag) => _tag = tag;
+    /// <param name="native">The native tag adapter.</param>
+    internal PlcTagWrapper(IPlcTag tag, IPlcTagNative? native = null)
+    {
+        _tag = tag;
+        _native = native ?? LibPlcTagNative.Instance;
+    }
 
     /// <summary>Get bit from index.</summary>
     /// <param name="index">The index.</param>
@@ -49,32 +63,32 @@ public class PlcTagWrapper
     /// <summary>Get local value Float32.</summary>
     /// <param name="offset">The offset.</param>
     /// <returns>A Value.</returns>
-    public float GetFloat32(int offset = 0) => plctag.plc_tag_get_float32(_tag.Handle, offset);
+    public float GetFloat32(int offset = 0) => _native.GetFloat32(_tag.Handle, offset);
 
     /// <summary>Get local value Float.</summary>
     /// <param name="offset">The offset.</param>
     /// <returns>A Value.</returns>
-    public double GetFloat64(int offset = 0) => plctag.plc_tag_get_float64(_tag.Handle, offset);
+    public double GetFloat64(int offset = 0) => _native.GetFloat64(_tag.Handle, offset);
 
     /// <summary>Get local value Int16.</summary>
     /// <param name="offset">The offset.</param>
     /// <returns>A Value.</returns>
-    public short GetInt16(int offset = 0) => plctag.plc_tag_get_int16(_tag.Handle, offset);
+    public short GetInt16(int offset = 0) => _native.GetInt16(_tag.Handle, offset);
 
     /// <summary>Get local value Int32.</summary>
     /// <param name="offset">The offset.</param>
     /// <returns>A Value.</returns>
-    public int GetInt32(int offset = 0) => plctag.plc_tag_get_int32(_tag.Handle, offset);
+    public int GetInt32(int offset = 0) => _native.GetInt32(_tag.Handle, offset);
 
     /// <summary>Get local value Int64.</summary>
     /// <param name="offset">The offset.</param>
     /// <returns>A Value.</returns>
-    public long GetInt64(int offset = 0) => plctag.plc_tag_get_int64(_tag.Handle, offset);
+    public long GetInt64(int offset = 0) => _native.GetInt64(_tag.Handle, offset);
 
     /// <summary>Get local value Int8.</summary>
     /// <param name="offset">The offset.</param>
     /// <returns>A Value.</returns>
-    public sbyte GetInt8(int offset = 0) => plctag.plc_tag_get_int8(_tag.Handle, offset);
+    public sbyte GetInt8(int offset = 0) => _native.GetInt8(_tag.Handle, offset);
 
     /// <summary>Get local value String.</summary>
     /// <param name="offset">The offset.</param>
@@ -119,22 +133,22 @@ public class PlcTagWrapper
     /// <summary>Get local value UInt16.</summary>
     /// <param name="offset">The offset.</param>
     /// <returns>A Value.</returns>
-    public ushort GetUInt16(int offset = 0) => plctag.plc_tag_get_uint16(_tag.Handle, offset);
+    public ushort GetUInt16(int offset = 0) => _native.GetUInt16(_tag.Handle, offset);
 
     /// <summary>Get local value UInt32.</summary>
     /// <param name="offset">The offset.</param>
     /// <returns>A Value.</returns>
-    public uint GetUInt32(int offset = 0) => plctag.plc_tag_get_uint32(_tag.Handle, offset);
+    public uint GetUInt32(int offset = 0) => _native.GetUInt32(_tag.Handle, offset);
 
     /// <summary>Get local value UInt64.</summary>
     /// <param name="offset">The offset.</param>
     /// <returns>A Value.</returns>
-    public ulong GetUInt64(int offset = 0) => plctag.plc_tag_get_uint64(_tag.Handle, offset);
+    public ulong GetUInt64(int offset = 0) => _native.GetUInt64(_tag.Handle, offset);
 
     /// <summary>Get local value UInt8.</summary>
     /// <param name="offset">The offset.</param>
     /// <returns>A Value.</returns>
-    public byte GetUInt8(int offset = 0) => plctag.plc_tag_get_uint8(_tag.Handle, offset);
+    public byte GetUInt8(int offset = 0) => _native.GetUInt8(_tag.Handle, offset);
 
     /// <summary>Set bit from index and value.</summary>
     /// <param name="index">The index.</param>
@@ -143,9 +157,9 @@ public class PlcTagWrapper
     public void SetBit(int index, bool value)
     {
 #if NET8_0_OR_GREATER
-        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, _tag.Size * 8);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, _tag.Size * BitsPerByte);
 #else
-        if (_tag.Size * 8 <= index)
+        if (_tag.Size * BitsPerByte <= index)
         {
             throw new ArgumentOutOfRangeException(nameof(index));
         }
@@ -186,32 +200,32 @@ public class PlcTagWrapper
     /// <summary>Set local value Float32.</summary>
     /// <param name="value">The value.</param>
     /// <param name="offset">The offset.</param>
-    public void SetFloat32(float value, int offset = 0) => plctag.plc_tag_set_float32(_tag.Handle, offset, value);
+    public void SetFloat32(float value, int offset = 0) => _native.SetFloat32(_tag.Handle, offset, value);
 
     /// <summary>Set local value Float.</summary>
     /// <param name="value">The value.</param>
     /// <param name="offset">The offset.</param>
-    public void SetFloat64(double value, int offset = 0) => plctag.plc_tag_set_float64(_tag.Handle, offset, value);
+    public void SetFloat64(double value, int offset = 0) => _native.SetFloat64(_tag.Handle, offset, value);
 
     /// <summary>Set local value Int16.</summary>
     /// <param name="value">The value.</param>
     /// <param name="offset">The offset.</param>
-    public void SetInt16(short value, int offset = 0) => plctag.plc_tag_set_int16(_tag.Handle, offset, value);
+    public void SetInt16(short value, int offset = 0) => _native.SetInt16(_tag.Handle, offset, value);
 
     /// <summary>Set local value Int32.</summary>
     /// <param name="value">The value.</param>
     /// <param name="offset">The offset.</param>
-    public void SetInt32(int value, int offset = 0) => plctag.plc_tag_set_int32(_tag.Handle, offset, value);
+    public void SetInt32(int value, int offset = 0) => _native.SetInt32(_tag.Handle, offset, value);
 
     /// <summary>Set local value Int64.</summary>
     /// <param name="value">The value.</param>
     /// <param name="offset">The offset.</param>
-    public void SetInt64(long value, int offset = 0) => plctag.plc_tag_set_int64(_tag.Handle, offset, value);
+    public void SetInt64(long value, int offset = 0) => _native.SetInt64(_tag.Handle, offset, value);
 
     /// <summary>Set local value Int8.</summary>
     /// <param name="value">The value.</param>
     /// <param name="offset">The offset.</param>
-    public void SetInt8(sbyte value, int offset = 0) => plctag.plc_tag_set_int8(_tag.Handle, offset, value);
+    public void SetInt8(sbyte value, int offset = 0) => _native.SetInt8(_tag.Handle, offset, value);
 
     /// <summary>Set local value String.</summary>
     /// <param name="value">The value.</param>
@@ -266,22 +280,22 @@ public class PlcTagWrapper
     /// <summary>Set local value UInt16.</summary>
     /// <param name="value">The value.</param>
     /// <param name="offset">The offset.</param>
-    public void SetUInt16(ushort value, int offset = 0) => plctag.plc_tag_set_uint16(_tag.Handle, offset, value);
+    public void SetUInt16(ushort value, int offset = 0) => _native.SetUInt16(_tag.Handle, offset, value);
 
     /// <summary>Set local value UInt32.</summary>
     /// <param name="value">The value.</param>
     /// <param name="offset">The offset.</param>
-    public void SetUInt32(uint value, int offset = 0) => plctag.plc_tag_set_uint32(_tag.Handle, offset, value);
+    public void SetUInt32(uint value, int offset = 0) => _native.SetUInt32(_tag.Handle, offset, value);
 
     /// <summary>Set local value UInt64.</summary>
     /// <param name="value">The value.</param>
     /// <param name="offset">The offset.</param>
-    public void SetUInt64(ulong value, int offset = 0) => plctag.plc_tag_set_uint64(_tag.Handle, offset, value);
+    public void SetUInt64(ulong value, int offset = 0) => _native.SetUInt64(_tag.Handle, offset, value);
 
     /// <summary>Set local value UInt8.</summary>
     /// <param name="value">The value.</param>
     /// <param name="offset">The offset.</param>
-    public void SetUInt8(byte value, int offset = 0) => plctag.plc_tag_set_uint8(_tag.Handle, offset, value);
+    public void SetUInt8(byte value, int offset = 0) => _native.SetUInt8(_tag.Handle, offset, value);
 
     /// <summary>Get local value.</summary>
     /// <param name="obj">The object.</param>

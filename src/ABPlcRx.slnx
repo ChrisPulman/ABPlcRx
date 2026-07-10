@@ -16,6 +16,7 @@
   <Project Path="../build/_build.csproj">
     <Build Solution="*|Any CPU" Project="false" />
   </Project>
+  <Project Path="ABPlcRx.Reactive/ABPlcRx.Reactive.csproj" />
   <Project Path="ABPlcRx.SourceGenerators/ABPlcRx.SourceGenerators.csproj" />
   <Project Path="ABPlcRx.TestApp/ABPlcRx.TestApp.csproj" />
   <Project Path="ABPlcRx.Tests/ABPlcRx.Tests.csproj" />

@@ -2,7 +2,11 @@
 // Chris Pulman licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
+namespace ABPlcRx.Reactive.SourceGeneration;
+#else
 namespace ABPlcRx.SourceGeneration;
+#endif
 
 /// <summary>Describes a PLC tag stream that should be generated for a partial model.</summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property, AllowMultiple = true, Inherited = false)]

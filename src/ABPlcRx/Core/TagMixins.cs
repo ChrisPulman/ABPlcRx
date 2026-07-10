@@ -4,7 +4,11 @@
 
 using System.Collections;
 
+#if REACTIVELIST_REACTIVE
+namespace ABPlcRx.Reactive;
+#else
 namespace ABPlcRx;
+#endif
 
 /// <summary>PLC tag bit helper extensions.</summary>
 public static class TagMixins

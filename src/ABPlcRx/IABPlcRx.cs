@@ -5,12 +5,18 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+#if !REACTIVE_SHIM
 using ReactiveUI.Primitives.Concurrency;
+#endif
 #if NET8_0_OR_GREATER
 using ReactiveUI.Primitives.Async;
 #endif
 
+#if REACTIVELIST_REACTIVE
+namespace ABPlcRx.Reactive;
+#else
 namespace ABPlcRx;
+#endif
 
 /// <summary>Reactive Allen Bradley PLC facade contract.</summary>
 /// <seealso cref="IDisposable" />

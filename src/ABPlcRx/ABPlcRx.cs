@@ -2,20 +2,42 @@
 // Chris Pulman licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using ReactiveUI.Primitives.Disposables;
+#if REACTIVE_SHIM
+using ReactiveUI.Primitives.Extensions.Reactive;
+using ReactiveUI.Primitives.Reactive;
+using SignalFactory = ReactiveUI.Primitives.Reactive.Signals.Signal;
+#else
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Concurrency;
-using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.Primitives.Extensions;
-using ReactiveUI.Primitives.Signals;
+using SignalFactory = ReactiveUI.Primitives.Signals.Signal;
+#endif
 #if NET8_0_OR_GREATER
 using ReactiveUI.Primitives.Async;
 #endif
 
+#if REACTIVELIST_REACTIVE
+namespace ABPlcRx.Reactive;
+#else
 namespace ABPlcRx;
+#endif
 
 /// <summary>Reactive Allen Bradley PLC facade.</summary>
 public class ABPlcRx : IABPlcRx
 {
+    /// <summary>Number of bits in a byte or signed byte.</summary>
+    private const int ByteBitWidth = 8;
+
+    /// <summary>Number of bits in a 16-bit integer.</summary>
+    private const int Int16BitWidth = 16;
+
+    /// <summary>Number of bits in a 32-bit integer.</summary>
+    private const int Int32BitWidth = 32;
+
+    /// <summary>Number of bits in a 64-bit integer.</summary>
+    private const int Int64BitWidth = 64;
+
     /// <summary>Tracks subscriptions and owned disposable resources.</summary>
     private readonly MultipleDisposable _disposables = [];
 
@@ -178,7 +200,7 @@ public class ABPlcRx : IABPlcRx
     public IObservable<IReadOnlyDictionary<string, object?>> ObserveMany(params string[] variables)
     {
         return variables is null || variables.Length == 0
-            ? Signal.Return((IReadOnlyDictionary<string, object?>)new Dictionary<string, object?>())
+            ? SignalFactory.Return((IReadOnlyDictionary<string, object?>)new Dictionary<string, object?>())
             : _plc.TagsAdded
             .Select(_ => RxVoid.Default)
             .StartWith(RxVoid.Default)
@@ -200,12 +222,12 @@ public class ABPlcRx : IABPlcRx
     /// <param name="groupName">The group name to observe.</param>
     /// <returns>Observable sequence of tags in the group that have changed.</returns>
     public IObservable<IPlcTag> ObserveGroup(string groupName) =>
-        Signal.Lazy(() =>
+        SignalFactory.Lazy(() =>
         {
             var group = _plc.GetTagGroup(groupName);
 
             // existing tags
-            var current = Signal.Merge(group.Tags.Select(t => t.Changed.Select(_ => t)));
+            var current = SignalFactory.Merge(group.Tags.Select(t => t.Changed.Select(_ => t)));
 
             // future tags that end up in the same group
             var future = _plc.TagsAdded
@@ -288,8 +310,8 @@ public class ABPlcRx : IABPlcRx
     /// <param name="scheduler">Optional scheduler for the ping cadence.</param>
     /// <returns>Observable sequence of ping result states, deduplicated.</returns>
     public IObservable<bool> ObservePing(TimeSpan interval, bool echo = false, ISequencer? scheduler = null)
-        => Signal.Timer(TimeSpan.Zero, interval, scheduler ?? TaskPoolSequencer.Default)
-                      .SelectMany(_ => Signal.FromAsync(ct => _plc.PingAsync(echo, ct)))
+        => SignalFactory.Timer(TimeSpan.Zero, interval, scheduler ?? TaskPoolSequencer.Default)
+                      .SelectMany(_ => SignalFactory.FromAsync(ct => _plc.PingAsync(echo, ct)))
                       .DistinctUntilChanged()
                       .Publish()
                       .RefCount();
@@ -435,10 +457,10 @@ public class ABPlcRx : IABPlcRx
     {
         var bitWidth = Type.GetTypeCode(tagType) switch
         {
-            TypeCode.Byte or TypeCode.SByte => 8,
-            TypeCode.UInt16 or TypeCode.Int16 => 16,
-            TypeCode.UInt32 or TypeCode.Int32 => 32,
-            TypeCode.UInt64 or TypeCode.Int64 => 64,
+            TypeCode.Byte or TypeCode.SByte => ByteBitWidth,
+            TypeCode.UInt16 or TypeCode.Int16 => Int16BitWidth,
+            TypeCode.UInt32 or TypeCode.Int32 => Int32BitWidth,
+            TypeCode.UInt64 or TypeCode.Int64 => Int64BitWidth,
             _ => throw new ArgumentException("Bit operations require an integral PLC tag type.", nameof(tagType)),
         };
 
@@ -495,7 +517,7 @@ public class ABPlcRx : IABPlcRx
     private static IObservable<PlcTagResult> MergeTagChanges(IEnumerable<IPlcTag> tags)
     {
         var streams = tags.Select(tag => tag.Changed).ToArray();
-        return streams.Length == 0 ? Signal.Silent<PlcTagResult>() : Signal.Merge(streams);
+        return streams.Length == 0 ? SignalFactory.Silent<PlcTagResult>() : SignalFactory.Merge(streams);
     }
 
     /// <summary>Creates a latest-value snapshot for observed tags.</summary>
@@ -508,7 +530,7 @@ public class ABPlcRx : IABPlcRx
     /// <param name="variables">The variables to observe.</param>
     /// <returns>An observable dictionary of current values.</returns>
     private IObservable<IReadOnlyDictionary<string, object?>> ObserveManySnapshot(string[] variables) =>
-        Signal.Create<IReadOnlyDictionary<string, object?>>(observer =>
+        SignalFactory.Create<IReadOnlyDictionary<string, object?>>(observer =>
         {
             var tags = variables
                 .Select(variable => (Variable: variable, Tag: _plc.GetPlcTag(variable)))

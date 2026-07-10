@@ -5,7 +5,11 @@
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Async;
 
+#if REACTIVELIST_REACTIVE
+namespace ABPlcRx.Reactive;
+#else
 namespace ABPlcRx;
+#endif
 
 /// <summary>Bridges synchronous observable streams to ReactiveUI.Primitives async observables.</summary>
 public static class ObservableAsyncBridgeExtensions

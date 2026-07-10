@@ -3,10 +3,20 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections;
+#if REACTIVE_SHIM
+using ReactiveUI.Primitives.Reactive;
+using SignalFactory = ReactiveUI.Primitives.Reactive.Signals.Signal;
+#else
 using ReactiveUI.Primitives;
+using SignalFactory = ReactiveUI.Primitives.Signals.Signal;
+#endif
 using ReactiveUI.Primitives.Signals;
 
+#if REACTIVELIST_REACTIVE
+namespace ABPlcRx.Reactive;
+#else
 namespace ABPlcRx;
+#endif
 
 /// <summary>Plc Tag Collection.</summary>
 internal sealed class PlcTagCollection : IDisposable
@@ -35,7 +45,7 @@ internal sealed class PlcTagCollection : IDisposable
     internal PlcTagCollection(ABPlc plc, TimeSpan scanInterval)
     {
         Plc = plc;
-        _scanDisposable = Signal.Timer(TimeSpan.Zero, scanInterval).Subscribe(_ =>
+        _scanDisposable = SignalFactory.Timer(TimeSpan.Zero, scanInterval).Subscribe(_ =>
         {
             if (!ScanEnabled || _disposed)
             {
@@ -74,7 +84,16 @@ internal sealed class PlcTagCollection : IDisposable
 
     /// <summary>Gets tags.</summary>
     /// <returns>A Value.</returns>
-    public IReadOnlyList<IPlcTag> Tags => _tags.AsReadOnly();
+    public IReadOnlyList<IPlcTag> Tags
+    {
+        get
+        {
+            lock (_lockScan)
+            {
+                return Array.AsReadOnly(_tags.ToArray());
+            }
+        }
+    }
 
     /// <summary>Gets controller.</summary>
     /// <value>
@@ -83,7 +102,13 @@ internal sealed class PlcTagCollection : IDisposable
     internal ABPlc Plc { get; }
 
     /// <summary>Clears all Tags from the group.</summary>
-    public void ClearTags() => _tags.Clear();
+    public void ClearTags()
+    {
+        lock (_lockScan)
+        {
+            _tags.Clear();
+        }
+    }
 
     /// <summary>Create Tag array.</summary>
     /// <typeparam name="TCustomType">Type to create.</typeparam>
@@ -141,7 +166,11 @@ internal sealed class PlcTagCollection : IDisposable
     public IPlcTag<TCustomType> CreateTagType<TCustomType>(string variable, string tagName, int size, int length = 1)
     {
         var tag = new PlcTag<TCustomType>(Plc, variable, tagName, size, length);
-        _tags.Add(tag);
+        lock (_lockScan)
+        {
+            _tags.Add(tag);
+        }
+
         return tag;
     }
 
@@ -154,7 +183,7 @@ internal sealed class PlcTagCollection : IDisposable
 
     /// <summary>Performs read of Group of Tags.</summary>
     /// <returns>A Value.</returns>
-    public IEnumerable<PlcTagResult> Read() => [.. Tags.Select(a => a.Read())];
+    public IEnumerable<PlcTagResult> Read() => [.. SnapshotTags().Select(a => a.Read())];
 
     /// <summary>Remove tag.</summary>
     /// <param name="tag">The tag.</param>
@@ -163,18 +192,26 @@ internal sealed class PlcTagCollection : IDisposable
     {
         ArgumentExceptionHelper.ThrowIfNull(tag, nameof(tag));
 
-        if (!Tags.Contains(tag))
+        var removed = false;
+        lock (_lockScan)
+        {
+            if (_tags.Contains(tag))
+            {
+                removed = _tags.Remove(tag);
+            }
+        }
+
+        if (!removed)
         {
             throw new ArgumentException("Tag not exists in this collection!");
         }
 
-        _ = _tags.Remove(tag);
         CheckDisposeTag(tag);
     }
 
     /// <summary>Performs write of Group of Tags.</summary>
     /// <returns>A Value.</returns>
-    public IEnumerable<PlcTagResult> Write() => Tags.Select(a => a.Write());
+    public IEnumerable<PlcTagResult> Write() => SnapshotTags().Select(a => a.Write());
 
     /// <summary>Releases unmanaged and - optionally - managed resources.</summary>
     /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
@@ -198,7 +235,7 @@ internal sealed class PlcTagCollection : IDisposable
         lock (_lockScan)
         {
             _readResultSubject.Dispose();
-            foreach (var tag in _tags.ToArray())
+            foreach (var tag in SnapshotTags())
             {
                 _ = _tags.Remove(tag);
                 CheckDisposeTag(tag);
@@ -217,5 +254,15 @@ internal sealed class PlcTagCollection : IDisposable
         }
 
         tag.Dispose();
+    }
+
+    /// <summary>Creates a stable tag snapshot.</summary>
+    /// <returns>The tag snapshot.</returns>
+    private IPlcTag[] SnapshotTags()
+    {
+        lock (_lockScan)
+        {
+            return [.. _tags];
+        }
     }
 }

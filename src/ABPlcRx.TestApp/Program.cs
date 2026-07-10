@@ -13,6 +13,9 @@ namespace ABPlcRx.TestApp;
 /// <summary>Console sample application entry point.</summary>
 internal static class Program
 {
+    /// <summary>Sample PLC polling interval in milliseconds.</summary>
+    private const int PollIntervalMilliseconds = 500;
+
     /// <summary>Tracks sample application subscriptions.</summary>
     private static MultipleDisposable _disposables = new();
 
@@ -38,7 +41,7 @@ internal static class Program
         _disposables.Add(Signal.Timer(TimeSpan.FromSeconds(1)).Subscribe(initialTick =>
         {
             // Create PLC
-            var microLogix = new ABPlcRx(PlcType.SLC, "172.16.17.4", TimeSpan.FromMilliseconds(500));
+            var microLogix = new ABPlcRx(PlcType.SLC, "172.16.17.4", TimeSpan.FromMilliseconds(PollIntervalMilliseconds));
             _disposables.Add(microLogix);
 
             // Disable Auto Write NOTE: defaults to true.

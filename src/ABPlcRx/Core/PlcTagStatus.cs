@@ -4,7 +4,11 @@
 
 using libplctag.NativeImport;
 
+#if REACTIVELIST_REACTIVE
+namespace ABPlcRx.Reactive;
+#else
 namespace ABPlcRx;
+#endif
 
 /// <summary>Status code operation.</summary>
 public static class PlcTagStatus

@@ -14,6 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\ABPlcRx.Reactive\ABPlcRx.Reactive.csproj" />
     <ProjectReference Include="..\ABPlcRx\ABPlcRx.csproj" />
     <ProjectReference Include="..\ABPlcRx.SourceGenerators\ABPlcRx.SourceGenerators.csproj" />
   </ItemGroup>
