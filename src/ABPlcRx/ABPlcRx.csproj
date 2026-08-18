@@ -9,7 +9,7 @@
   <ItemGroup>
     <PackageReference Include="libplctag.NativeImport" Version="2.0.0-alpha.8" />
     <PackageReference Include="ReactiveUI.Primitives" Version="6.0.0" />
-    <PackageReference Include="ReactiveUI.Primitives.Async" Version="6.0.0" />
+    <PackageReference Include="ReactiveUI.Primitives.Async" Version="7.1.0" />
     <PackageReference Include="ReactiveUI.Primitives.Extensions" Version="6.0.0" />
   </ItemGroup>
 
